@@ -1,6 +1,9 @@
-// Nodevember day 2 — Candy
-// We actually made the script for day 1 on day 2, so I'm one day behind and quite tired.
-// I would love to scatter a lot of weird circles all over the canvas.
+// Nodevember day 3 — Fruit
+// This is based on the Superformula by Johan Gielis.
+// https://en.wikipedia.org/wiki/Superformula
+// There's an error in the implementation, connecting all points to the "center" 
+// (which also seems to be in the wrong position).
+// I kind of like the result, so I'm not interested in fixing it for today.
 
 import Parser from './parser.js';
 import Scanner, { TokenType } from './scanner.js';

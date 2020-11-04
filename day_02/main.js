@@ -1,6 +1,10 @@
 // Nodevember day 2 — Candy
 // We actually made the script for day 1 on day 2, so I'm one day behind and quite tired.
 // I would love to scatter a lot of weird circles all over the canvas.
+// I've created an expression parser that could add dynamic expressions when working with attributes.
+// Based on Lox by https://craftinginterpreters.com/
+// I've also added path attributes, although not in the perfect format yet.
+// This is based on Houdini's instance attributes: https://www.sidefx.com/docs/houdini/copy/instanceattrs.html
 
 import Parser from './parser.js';
 import Scanner, { TokenType } from './scanner.js';

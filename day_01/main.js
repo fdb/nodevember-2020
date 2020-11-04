@@ -1,6 +1,13 @@
 // Nodevember day 1 - cookie
+// The nodevember experiment is to set up a simple node-based 2D editor.
 // We don't have a full graphical node editor yet, just the runtime parts.
-// The nodes are all pure, that is, they don't have any side effects. They take input from their input ports and return outputs on their output ports.
+// The nodes are all pure, that is, they don't have any side effects. 
+// They take input from their input ports and return outputs on their output ports.
+// Today I've set up the basic node structure.
+// I've created a Path object that stores paths in the traditional moveto/lineto/cubeto format.
+// I needed to draw circles with cubic beziers, which introduced the concept of epsilon.
+// I used this concept to play around with the sort of shapes.
+// I don't have a merge node yet, so I just output the drawing of multiple nodes.
 
 import { html, render } from '../third_party/preact-htm.min.js';
 
