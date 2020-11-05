@@ -7,6 +7,7 @@ import { Color } from './graphics.js';
 
 function Viewer({ network, version }) {
   const canvasRef = useRef();
+  const contextRef = useRef();
   useEffect(() => {
     const canvas = document.getElementById('c');
     canvas.style.width = `${canvas.width}px`;
@@ -16,11 +17,12 @@ function Viewer({ network, version }) {
     const ctx = canvas.getContext('2d');
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     canvasRef.current = canvas;
+    contextRef.current = ctx;
   }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx = contextRef.current;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
     ctx.translate(canvas.width / 2 / window.devicePixelRatio, canvas.height / 2 / window.devicePixelRatio);
@@ -30,7 +32,6 @@ function Viewer({ network, version }) {
     // node.run();
 
     const outputShape = node.outputValue('out');
-    outputShape.fill = new Color(0.9, 0.4, 0.5);
     outputShape.draw(ctx);
 
     ctx.restore();
@@ -52,10 +53,10 @@ function NetworkView({ activeNode, network, onSelectNode }) {
       </g>`
   );
 
-  const conns = network.connections.map(({ outNode, outPort, inNode, inPort }) => {
+  const conns = network.connections.map(({ outNode, inNode, inPort }) => {
     outNode = network.nodes.find((node) => node.name === outNode);
     inNode = network.nodes.find((node) => node.name === inNode);
-    const outDelta = 10 + outNode.outputNames.indexOf(outPort) * 20;
+    const outDelta = 10;
     const inDelta = 10 + inNode.inputNames.indexOf(inPort) * 20;
     return html`<line
       x1=${outNode.x + outDelta}
@@ -165,35 +166,26 @@ function PropsView({ activeNode, onSetInput }) {
 
 const network = new nodes.Network();
 
-const circle1 = new nodes.CircleNode('circle1');
-circle1.x = 20;
-circle1.y = 50;
-circle1.setInput('radius', 150);
-circle1.setInput('epsilon', 2.5);
+const spiral1 = new nodes.SpiralNode('spiral1');
+spiral1.setInput('segments', 20);
+spiral1.x = 20;
+spiral1.y = 50;
 
-const superformula1 = new nodes.SuperformulaNode('superformula1');
-superformula1.x = 150;
-superformula1.y = 50;
-superformula1.setInput('radius', 105);
-superformula1.setInput('m', 0.35);
-superformula1.setInput('n1', 0.37);
-superformula1.setInput('n2', 1.0);
-superformula1.setInput('n3', 0.82);
-
-// const scatter1 = new ScatterPointsNode('scatter1');
-// scatter1.x = 150;
-// scatter1.y = 50;
+const spiral2 = new nodes.SpiralNode('spiral2');
+spiral2.setInput('segments', 500);
+spiral2.x = 150;
+spiral2.y = 50;
 
 const copy1 = new nodes.CopyToPointsNode('copy1');
 copy1.x = 20;
 copy1.y = 150;
 
-network.nodes.push(circle1);
-network.nodes.push(superformula1);
-// network.nodes.push(scatter1);
+network.nodes.push(spiral1);
+network.nodes.push(spiral2);
 network.nodes.push(copy1);
-network.connections.push({ outNode: 'circle1', outPort: 'out', inNode: 'copy1', inPort: 'shape' });
-network.connections.push({ outNode: 'superformula1', outPort: 'out', inNode: 'copy1', inPort: 'target' });
+network.nodes.push(copy1);
+network.connections.push({ outNode: 'spiral1', inNode: 'copy1', inPort: 'shape' });
+network.connections.push({ outNode: 'spiral2', inNode: 'copy1', inPort: 'target' });
 network.renderedNode = 'copy1';
 
 // Check connections
@@ -203,9 +195,7 @@ for (const conn of network.connections) {
   const inNodeResult = network.nodes.find((node) => node.name === conn.inNode);
   console.assert(outNodeResult, `Connection ${connString}: could not find output node ${conn.outNode}.`);
   console.assert(inNodeResult, `Connection ${connString}: could not find input node ${conn.inNode}.`);
-  const outPortResult = outNodeResult.outputMap[conn.outPort];
   const inPortResult = inNodeResult.inputMap[conn.inPort];
-  console.assert(outPortResult, `Connection ${connString}: could not find output port ${conn.outPort} for node ${conn.outNode}.`);
   console.assert(inPortResult, `Connection ${connString}: could not find input port ${conn.inPort} for node ${conn.inNode}.`);
 }
 
@@ -221,11 +211,12 @@ function App() {
 
   const animate = () => {
     const time = (Date.now() - startTime) / 1000.0;
-    const epsilon = Math.cos(time / 10.0) * 3.0;
-    // let epsilon = (time % 100.0) / 100.0;
-    // epsilon -= 0.5;
-    // epsilon *= 5;
-    circle1.setInput('epsilon', epsilon);
+    const startAngle1 = time * 7.0;
+    const endAngle2 = 180 + time * 100;
+    const endRadius2 = 150 + Math.sin(time / 10.0) * 50;
+    spiral1.setInput('startAngle', startAngle1);
+    spiral2.setInput('endAngle', endAngle2);
+    spiral2.setInput('endRadius', endRadius2);
     setVersion((version) => version + 1);
     window.requestAnimationFrame(animate);
   };
@@ -239,7 +230,6 @@ function App() {
     setUiVisible((ui) => !ui);
   };
 
-  // console.log(activeNode);
   return html`<div class=${`app ${uiVisible ? 'ui-visible' : 'ui-hidden'}`}>
     <button onClick=${toggleUI} style=${{ position: 'fixed', right: '10px', top: '10px', outline: 'none' }}>
       <svg width="20" height="20" viewBox="0 0 10 10"><path d="M0 2h8M0 5h8M0 8h8" fill="none" stroke="#a0aec0" /></svg>

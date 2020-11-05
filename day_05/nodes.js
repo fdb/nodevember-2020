@@ -1,7 +1,7 @@
 import Parser from './parser.js';
 import Scanner, { TokenType } from './scanner.js';
 import Interpreter from './interpreter.js';
-import { Color, Vec2, Path, CIRCLE_EPSILON } from './graphics.js';
+import { Color, Vec2, Path, CIRCLE_EPSILON, toRadians, lerp } from './graphics.js';
 
 class Lox {
   constructor() {
@@ -60,26 +60,20 @@ export class Port {
 }
 
 export class Node {
-  constructor(name) {
+  constructor(name, outputType) {
     this.name = name;
     this.x = 0;
     this.y = 0;
     this.inputNames = [];
     this.outputNames = [];
     this.inputMap = {};
-    this.outputMap = {};
+    this.output = new Port('out', outputType);
   }
 
   addInput(name, type, value) {
     const port = new Port(name, type, value);
     this.inputNames.push(name);
     this.inputMap[name] = port;
-  }
-
-  addOutput(name, type) {
-    const port = new Port(name, type);
-    this.outputNames.push(name);
-    this.outputMap[name] = port;
   }
 
   inputValue(name) {
@@ -90,12 +84,12 @@ export class Node {
     this.inputMap[name].value = value;
   }
 
-  outputValue(name) {
-    return this.outputMap[name].value;
+  outputValue() {
+    return this.output.value;
   }
 
-  setOutput(name, value) {
-    this.outputMap[name].value = value;
+  setOutput(value) {
+    this.output.value = value;
   }
 
   run() {
@@ -124,7 +118,7 @@ export class Network {
         const outNode = this.nodes.find((node) => node.name === conn.outNode);
         console.assert(node, `Could not find output node ${conn.outNode}.`);
         this.runNode(outNode);
-        node.setInput(inputName, outNode.outputValue(conn.outPort));
+        node.setInput(inputName, outNode.outputValue());
       }
     }
     node.run();
@@ -133,15 +127,14 @@ export class Network {
 
 export class CircleNode extends Node {
   constructor(name) {
-    super(name);
+    super(name, TYPE_SHAPE);
     this.addInput('position', TYPE_VEC2);
     this.addInput('radius', TYPE_FLOAT, 100);
     this.addInput('fill', TYPE_COLOR);
     this.addInput('epsilon', TYPE_FLOAT, 1.0);
-    this.addOutput('out', TYPE_SHAPE);
   }
 
-  run(ctx) {
+  run() {
     const path = new Path();
     const position = this.inputValue('position');
     const radius = this.inputValue('radius');
@@ -160,16 +153,59 @@ export class CircleNode extends Node {
     path.curveTo(new Vec2(p4.x, p4.y - rEpsilon), new Vec2(p1.x - rEpsilon, p1.y), p1);
     path.close();
     path.fill = fill.clone();
-    this.setOutput('out', path);
+    this.setOutput(path);
+  }
+}
+
+export class SpiralNode extends Node {
+  constructor(name) {
+    super(name, TYPE_SHAPE);
+    this.addInput('position', TYPE_VEC2);
+    this.addInput('startRadius', TYPE_FLOAT, 10);
+    this.addInput('startAngle', TYPE_FLOAT, 0);
+    this.addInput('endRadius', TYPE_FLOAT, 100);
+    this.addInput('endAngle', TYPE_FLOAT, 360);
+    this.addInput('segments', TYPE_INT, 100);
+  }
+
+  run() {
+    const path = new Path();
+    const position = this.inputValue('position');
+    const startRadius = this.inputValue('startRadius');
+    const startAngle = this.inputValue('startAngle');
+    const endRadius = this.inputValue('endRadius');
+    const endAngle = this.inputValue('endAngle');
+    const segments = this.inputValue('segments');
+
+    // let x = Math.cos(toRadians(startAngle)) * startRadius;
+    // let y = Math.sin(toRadians(startAngle)) * startRadius;
+
+    // path.moveTo(new Vec2(position.x + x, position.y + y));
+    for (let i = 0; i < segments; i++) {
+      const t = i / segments;
+      const angle = lerp(startAngle, endAngle, t);
+      const radius = lerp(startRadius, endRadius, t);
+
+      const x = Math.cos(toRadians(angle)) * radius;
+      const y = Math.sin(toRadians(angle)) * radius;
+      if (i === 0) {
+        path.moveTo(new Vec2(position.x + x, position.y + y));
+      } else {
+        path.lineTo(new Vec2(position.x + x, position.y + y));
+      }
+    }
+    path.fill = null;
+    path.stroke = new Color(0.92, 0.5, 0.39); // #eabf77 237 187 101 0.92578125 0.5 0.39453125
+    path.strokeWidth = 0.25;
+    this.setOutput(path);
   }
 }
 
 export class CopyToPointsNode extends Node {
   constructor(name) {
-    super(name);
+    super(name, TYPE_SHAPE);
     this.addInput('shape', TYPE_SHAPE);
     this.addInput('target', TYPE_SHAPE);
-    this.addOutput('out', TYPE_SHAPE);
   }
 
   scalePath(shape, scale) {
@@ -187,7 +223,9 @@ export class CopyToPointsNode extends Node {
     const shape = this.inputValue('shape');
     const target = this.inputValue('target');
     const outShape = new Path();
-    outShape.fill = shape.fill.clone();
+    outShape.fill = shape.fill ? shape.fill.clone() : null;
+    outShape.stroke = shape.stroke ? shape.stroke.clone() : null;
+    outShape.strokeWidth = shape.strokeWidth;
     //console.log(target);
     for (let i = 0, l = target.points.length; i < l; i++) {
       const transform = target.points[i];
@@ -203,7 +241,7 @@ export class CopyToPointsNode extends Node {
         outShape.points.push(new Vec2(pt.x + transform.x, pt.y + transform.y));
       }
     }
-    this.setOutput('out', outShape);
+    this.setOutput(outShape);
   }
 }
 
@@ -211,13 +249,12 @@ export class CopyToPointsNode extends Node {
 // But I won't do the path calculation code today, so the scatter will just happen within a bounding box.
 export class ScatterPointsNode extends Node {
   constructor(name) {
-    super(name);
+    super(name, TYPE_SHAPE);
     this.addInput('position', TYPE_VEC2);
     this.addInput('width', TYPE_FLOAT, 550);
     this.addInput('height', TYPE_FLOAT, 550);
     this.addInput('amount', TYPE_INT, 50);
     this.addInput('seed', TYPE_INT, 42);
-    this.addOutput('out', TYPE_SHAPE);
   }
 
   run() {
@@ -234,17 +271,16 @@ export class ScatterPointsNode extends Node {
       const y = position.y + (Math.random() - 0.5) * height;
       path.moveTo(new Vec2(x, y));
     }
-    this.setOutput('out', path);
+    this.setOutput(path);
   }
 }
 
 export class WrangleNode extends Node {
   constructor(name) {
-    super(name);
+    super(name, TYPE_SHAPE);
     this.addInput('shape', TYPE_SHAPE);
     this.addInput('attr', TYPE_STRING);
     this.addInput('expr', TYPE_STRING);
-    this.addOutput('out', TYPE_SHAPE);
   }
 
   run() {
@@ -274,13 +310,13 @@ export class WrangleNode extends Node {
       newPath.attrs.push({ [attrName]: result });
     }
 
-    this.setOutput('out', newPath);
+    this.setOutput(newPath);
   }
 }
 
 export class SuperformulaNode extends Node {
   constructor(name) {
-    super(name);
+    super(name, TYPE_SHAPE);
     this.addInput('radius', TYPE_FLOAT, 300);
     this.addInput('m', TYPE_FLOAT, 8);
     this.addInput('n1', TYPE_FLOAT, 1);
@@ -288,7 +324,6 @@ export class SuperformulaNode extends Node {
     this.addInput('n3', TYPE_FLOAT, 0.5);
     this.addInput('a', TYPE_FLOAT, 1);
     this.addInput('b', TYPE_FLOAT, 1);
-    this.addOutput('out', TYPE_SHAPE);
   }
 
   run() {
@@ -336,6 +371,6 @@ export class SuperformulaNode extends Node {
       path.close();
     }
 
-    this.setOutput('out', path);
+    this.setOutput(path);
   }
 }

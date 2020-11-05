@@ -1,3 +1,11 @@
+export function toRadians(deg) {
+  return deg * (Math.PI / 180);
+}
+
+export function lerp(a, b, t) {
+  return a * (1.0 - t) + b * t;
+}
+
 export class Vec2 {
   constructor(x = 0, y = 0) {
     this.x = x;
@@ -92,11 +100,13 @@ export class Path {
       }
     }
     if (this.fill) {
+      console.log('fwewf', this.fill);
       ctx.fillStyle = this.fill.toRgba();
       ctx.fill();
     }
     if (this.stroke) {
       ctx.strokeStyle = this.stroke.toRgba();
+      ctx.lineWidth = this.strokeWidth;
       ctx.stroke();
     }
   }
