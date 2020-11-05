@@ -29,7 +29,7 @@ const PATH_LINE_TO = 'L';
 const PATH_CURVE_TO = 'C';
 const PATH_CLOSE = 'Z';
 
-const CIRCLE_EPSILON = (4 / 3) * Math.tan(Math.PI / 8);
+export const CIRCLE_EPSILON = (4 / 3) * Math.tan(Math.PI / 8);
 
 export class Path {
   constructor() {

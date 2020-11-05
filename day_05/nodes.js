@@ -1,6 +1,7 @@
 import Parser from './parser.js';
 import Scanner, { TokenType } from './scanner.js';
 import Interpreter from './interpreter.js';
+import { Color, Vec2, Path, CIRCLE_EPSILON } from './graphics.js';
 
 class Lox {
   constructor() {
@@ -31,7 +32,6 @@ export const TYPE_INT = 'int';
 export const TYPE_COLOR = 'color';
 export const TYPE_SHAPE = 'shape';
 export const TYPE_STRING = 'string';
-
 
 export class Port {
   constructor(name, type, value) {
@@ -112,7 +112,7 @@ export class Network {
 
   run() {
     const node = this.nodes.find((node) => node.name === this.renderedNode);
-    console.assert(node, `Network.run(): could not find rendered node ${network.renderedNode}.`);
+    console.assert(node, `Network.run(): could not find rendered node ${this.renderedNode}.`);
     this.runNode(node);
   }
 

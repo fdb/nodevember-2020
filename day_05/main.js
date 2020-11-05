@@ -1,6 +1,9 @@
 // Nodevember day 5 — Pastry
 // Working with spirals
 import { html, render, useEffect, useState, useRef } from '../third_party/preact-htm.min.js';
+import * as nodes from './nodes.js';
+import { TYPE_FLOAT, TYPE_INT, TYPE_SHAPE } from './nodes.js';
+import { Color } from './graphics.js';
 
 function Viewer({ network, version }) {
   const canvasRef = useRef();
@@ -160,15 +163,15 @@ function PropsView({ activeNode, onSetInput }) {
   return html`<div class="props bg-gray-900 select-none">${rows}</div>`;
 }
 
-const network = new Network();
+const network = new nodes.Network();
 
-const circle1 = new CircleNode('circle1');
+const circle1 = new nodes.CircleNode('circle1');
 circle1.x = 20;
 circle1.y = 50;
 circle1.setInput('radius', 150);
 circle1.setInput('epsilon', 2.5);
 
-const superformula1 = new SuperformulaNode('superformula1');
+const superformula1 = new nodes.SuperformulaNode('superformula1');
 superformula1.x = 150;
 superformula1.y = 50;
 superformula1.setInput('radius', 105);
@@ -181,7 +184,7 @@ superformula1.setInput('n3', 0.82);
 // scatter1.x = 150;
 // scatter1.y = 50;
 
-const copy1 = new CopyToPointsNode('copy1');
+const copy1 = new nodes.CopyToPointsNode('copy1');
 copy1.x = 20;
 copy1.y = 150;
 
