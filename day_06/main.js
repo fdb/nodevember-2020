@@ -1,12 +1,14 @@
 // Nodevember day 6 - Drawing
 // Add interactivity?
 import { html, render, useEffect, useState, useRef } from '../third_party/preact-htm.min.js';
+import { Color } from './graphics.js';
 import * as nodes from './nodes.js';
-import { TYPE_FLOAT, TYPE_INT, TYPE_SHAPE } from './nodes.js';
+import { TYPE_FLOAT, TYPE_INT, TYPE_SHAPE, TYPE_STRING, TYPE_VEC2 } from './nodes.js';
 
-function Viewer({ network, version }) {
+function Viewer({ network, version, uiVisible }) {
   const canvasRef = useRef();
   const contextRef = useRef();
+  const [drawPoints, setDrawPoints] = useState(false);
   useEffect(() => {
     const canvas = canvasRef.current; //document.getElementById('c');
     canvas.style.width = `${canvas.width}px`;
@@ -31,10 +33,27 @@ function Viewer({ network, version }) {
     const outputShape = node.outputValue('out');
     outputShape.draw(ctx);
 
+    if (drawPoints) {
+      ctx.fillStyle = '#4299e1';
+      ctx.beginPath();
+      for (const pt of outputShape.points) {
+        ctx.moveTo(pt.x, pt.y);
+        ctx.arc(pt.x, pt.y, 2, 0, Math.PI * 2);
+      }
+      ctx.fill();
+    }
+
     ctx.restore();
-  }, [network, version]);
+  }, [network, version, drawPoints]);
 
   return html`<div class="viewer bg-gray-900 flex justify-center align-center">
+    ${uiVisible &&
+    html`<div class="fixed top-0 left-0 w-screen p-2 text-sm flex align-center bg-gray-800 z">
+      <label class="ml-2"
+        ><input class="align-text-middle" type="checkbox" value=${drawPoints} onChange=${() => setDrawPoints((pt) => !pt)} /> Draw
+        Points</label
+      >
+    </div>`}
     <canvas width="600" height="600" ref=${canvasRef}></canvas>
   </div>`;
 }
@@ -150,11 +169,13 @@ function PropsView({ activeNode, onSetInput }) {
       const port = activeNode.inputMap[inputName];
       rows.push(html`<div class="p-2 flex">
         <div class="w-32 text-gray-500 text-sm p-1">${port.name}</div>
+        ${port.type === TYPE_VEC2 && html`<p class="p-1 text-sm italic text-gray-600">${port.value.x} ${port.value.y}</p>`}
         ${port.type === TYPE_FLOAT &&
         html`<${FloatDragger} value=${port.value} onChange=${(value) => onSetInput(activeNode, inputName, value)} />`}
         ${port.type === TYPE_INT &&
         html`<${IntDragger} value=${port.value} onChange=${(value) => onSetInput(activeNode, inputName, value)} />`}
         ${port.type === TYPE_SHAPE && html`<p class="p-1 text-sm italic text-gray-600">[Shape]</p>`}
+        ${port.type === TYPE_STRING && html`<p class="p-1 text-sm italic text-gray-600">${port.value}</p>`}
       </div>`);
     }
   }
@@ -163,26 +184,34 @@ function PropsView({ activeNode, onSetInput }) {
 
 const network = new nodes.Network();
 
-const spiral1 = new nodes.SpiralNode('spiral1');
-spiral1.setInput('segments', 20);
-spiral1.x = 20;
-spiral1.y = 50;
+const circle1 = new nodes.CircleNode('circle1');
+circle1.setInput('fill', new Color(1, 0, 0));
+circle1.setInput('radius', 10);
+circle1.x = 20;
+circle1.y = 50;
 
-const spiral2 = new nodes.SpiralNode('spiral2');
-spiral2.setInput('segments', 500);
-spiral2.x = 150;
-spiral2.y = 50;
+const grid1 = new nodes.GridNode('grid1');
+grid1.x = 150;
+grid1.y = 50;
+
+const wrangle1 = new nodes.WrangleNode('wrangle1');
+wrangle1.setInput('attr', `pscale`);
+wrangle1.setInput('expr', `($PT * 0.1 )% 2`);
+
+wrangle1.x = 150;
+wrangle1.y = 100;
 
 const copy1 = new nodes.CopyToPointsNode('copy1');
 copy1.x = 20;
 copy1.y = 150;
 
-network.nodes.push(spiral1);
-network.nodes.push(spiral2);
+network.nodes.push(circle1);
+network.nodes.push(grid1);
+network.nodes.push(wrangle1);
 network.nodes.push(copy1);
-network.nodes.push(copy1);
-network.connections.push({ outNode: 'spiral1', inNode: 'copy1', inPort: 'shape' });
-network.connections.push({ outNode: 'spiral2', inNode: 'copy1', inPort: 'target' });
+network.connections.push({ outNode: 'circle1', inNode: 'copy1', inPort: 'shape' });
+network.connections.push({ outNode: 'grid1', inNode: 'wrangle1', inPort: 'shape' });
+network.connections.push({ outNode: 'wrangle1', inNode: 'copy1', inPort: 'target' });
 network.renderedNode = 'copy1';
 
 // Check connections
@@ -203,17 +232,13 @@ function App() {
 
   useEffect(() => {
     setActiveNode(network.nodes.find((node) => node.name === network.renderedNode));
-    // window.requestAnimationFrame(animate);
+    window.requestAnimationFrame(animate);
   }, []);
 
   const animate = () => {
     const time = (Date.now() - startTime) / 1000.0;
-    const startAngle1 = time * 7.0;
-    const endAngle2 = 180 + time * 100;
-    const endRadius2 = 150 + Math.sin(time / 10.0) * 50;
-    spiral1.setInput('startAngle', startAngle1);
-    spiral2.setInput('endAngle', endAngle2);
-    spiral2.setInput('endRadius', endRadius2);
+    wrangle1.setInput('expr', `($PT * ${Math.sin(time / 200.0)} + ${time} ) % 2`);
+    circle1.setInput('epsilon', `${Math.sin(time / 80.0) * 5.0}`);
     setVersion((version) => version + 1);
     window.requestAnimationFrame(animate);
   };
@@ -228,10 +253,10 @@ function App() {
   };
 
   return html`<div class=${`app ${uiVisible ? 'ui-visible' : 'ui-hidden'}`}>
-    <button onClick=${toggleUI} style=${{ position: 'fixed', right: '10px', top: '10px', outline: 'none' }}>
+    <button onClick=${toggleUI} style=${{ zIndex: 10, position: 'fixed', right: '10px', top: '10px', outline: 'none' }}>
       <svg width="20" height="20" viewBox="0 0 10 10"><path d="M0 2h8M0 5h8M0 8h8" fill="none" stroke="#a0aec0" /></svg>
     </button>
-    <${Viewer} network=${network} version=${version} />
+    <${Viewer} network=${network} version=${version} uiVisible=${uiVisible} />
     <div class="sidebar">
       <${PropsView} activeNode=${activeNode} onSetInput=${onSetInput} version=${version} />
       <${NetworkView} network=${network} activeNode=${activeNode} onSelectNode=${setActiveNode} version=${version} />

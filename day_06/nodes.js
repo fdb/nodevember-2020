@@ -125,6 +125,35 @@ export class Network {
   }
 }
 
+export class GridNode extends Node {
+  constructor(name) {
+    super(name, TYPE_SHAPE);
+    this.addInput('position', TYPE_VEC2);
+    this.addInput('width', TYPE_FLOAT, 300);
+    this.addInput('height', TYPE_FLOAT, 300);
+    this.addInput('columns', TYPE_INT, 10);
+    this.addInput('rows', TYPE_INT, 10);
+  }
+
+  run() {
+    const path = new Path();
+    const position = this.inputValue('position');
+    const width = this.inputValue('width');
+    const height = this.inputValue('height');
+    const columns = this.inputValue('columns');
+    const rows = this.inputValue('rows');
+
+    for (let i = 0; i < rows; i++) {
+      for (let j = 0; j < columns; j++) {
+        let x = (width * j) / columns;
+        let y = (height * i) / rows;
+        path.moveTo(new Vec2(position.x + x - width / 2, position.y + y - height / 2));
+      }
+    }
+    this.setOutput(path);
+  }
+}
+
 export class CircleNode extends Node {
   constructor(name) {
     super(name, TYPE_SHAPE);
@@ -152,7 +181,8 @@ export class CircleNode extends Node {
     path.curveTo(new Vec2(p3.x - rEpsilon, p3.y), new Vec2(p4.x, p4.y + rEpsilon), p4);
     path.curveTo(new Vec2(p4.x, p4.y - rEpsilon), new Vec2(p1.x - rEpsilon, p1.y), p1);
     path.close();
-    path.fill = fill.clone();
+    path.fill = null;
+    path.stroke = fill.clone();
     this.setOutput(path);
   }
 }
@@ -197,6 +227,22 @@ export class SpiralNode extends Node {
     path.fill = null;
     path.stroke = new Color(0.92, 0.5, 0.39); // #eabf77 237 187 101 0.92578125 0.5 0.39453125
     path.strokeWidth = 0.25;
+    this.setOutput(path);
+  }
+}
+
+export class ConnectNode extends Node {
+  constructor(name) {
+    super(name, TYPE_SHAPE);
+    // this.addInput('', TYPE_STRING);
+    // this.addInput('point2', TYPE_VEC2);
+  }
+
+  run() {
+    // const point1 = this.inputValue('point1');
+    // const point2 = this.inputValue('point2');
+    // const path = new Path();
+
     this.setOutput(path);
   }
 }

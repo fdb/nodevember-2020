@@ -100,7 +100,6 @@ export class Path {
       }
     }
     if (this.fill) {
-      console.log('fwewf', this.fill);
       ctx.fillStyle = this.fill.toRgba();
       ctx.fill();
     }
