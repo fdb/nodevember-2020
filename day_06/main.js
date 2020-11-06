@@ -238,7 +238,7 @@ function App() {
   const animate = () => {
     const time = (Date.now() - startTime) / 1000.0;
     wrangle1.setInput('expr', `($PT * ${Math.sin(time / 200.0)} + ${time} ) % 2`);
-    circle1.setInput('epsilon', `${Math.sin(time / 80.0) * 5.0}`);
+    circle1.setInput('epsilon', Math.sin((time / 80.0) * 5.0));
     setVersion((version) => version + 1);
     window.requestAnimationFrame(animate);
   };
@@ -257,10 +257,11 @@ function App() {
       <svg width="20" height="20" viewBox="0 0 10 10"><path d="M0 2h8M0 5h8M0 8h8" fill="none" stroke="#a0aec0" /></svg>
     </button>
     <${Viewer} network=${network} version=${version} uiVisible=${uiVisible} />
-    <div class="sidebar">
+    ${uiVisible &&
+    html`<div class="sidebar">
       <${PropsView} activeNode=${activeNode} onSetInput=${onSetInput} version=${version} />
       <${NetworkView} network=${network} activeNode=${activeNode} onSelectNode=${setActiveNode} version=${version} />
-    </div>
+    </div>`}
   </div>`;
 }
 
