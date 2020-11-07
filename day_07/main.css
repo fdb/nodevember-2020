@@ -1,0 +1,33 @@
+.app {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr;
+  background: #111;
+  grid-gap: 3px;
+}
+
+.app.ui-visible {
+  grid-template-columns: 1fr 300px;
+}
+
+.viewer {
+}
+
+.ui-hidden .sidebar {
+  display: none;
+}
+
+.sidebar {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  background: #111;
+  grid-gap: 4px;
+}
+
+.network {
+}
+
+.props {
+}
