@@ -1,5 +1,5 @@
 // Nodevember day 9 - Fluffy
-// Lines copied to points on a grid.
+// Wiggle shapes, and place lines on them.
 
 import { html, render, useEffect, useState, useRef } from '../third_party/preact-htm.min.js';
 import { Color, LinearGradient, Vec2 } from './graphics.js';
@@ -211,18 +211,21 @@ super1.x = 20;
 super1.y = 20;
 
 const line1 = new nodes.LineNode('line1');
-line1.setInput('point1', new Vec2(-450, -350));
-line1.setInput('point2', new Vec2(0, 250));
+line1.setInput('point1', new Vec2(0, 0));
+line1.setInput('point2', new Vec2(300, 300));
+line1.setInput('stroke', new Color(1, 0.75, 0.8, 1));
+line1.setInput('strokeWidth', 0.5);
+
 line1.x = 20;
 line1.y = 20;
 
-// const grid1 = new nodes.GridNode('grid1');
-// grid1.setInput('columns', 10);
-// grid1.setInput('rows', 10);
-// grid1.setInput('width', 450);
-// grid1.setInput('height', 450);
-// grid1.x = 150;
-// grid1.y = 20;
+const grid1 = new nodes.GridNode('grid1');
+grid1.setInput('columns', 50);
+grid1.setInput('rows', 50);
+grid1.setInput('width', 450);
+grid1.setInput('height', 450);
+grid1.x = 150;
+grid1.y = 20;
 
 const super2 = new nodes.SuperformulaNode('super2');
 super2.setInput('segments', 250);
@@ -241,6 +244,11 @@ const copy1 = new nodes.CopyToPointsNode('copy1');
 copy1.x = 20;
 copy1.y = 140;
 
+const wiggle1 = new nodes.WiggleNode('wiggle1');
+wiggle1.setInput('offset', new Vec2(0, 0));
+wiggle1.x = 20;
+wiggle1.y = 200;
+
 const transform1 = new nodes.TransformNode('transform1');
 transform1.setInput('translate', new Vec2(1, 10));
 transform1.setInput('scale', new Vec2(1, 1));
@@ -250,14 +258,16 @@ transform1.y = 200;
 network.nodes.push(super1);
 network.nodes.push(line1);
 network.nodes.push(super2);
+network.nodes.push(grid1);
 network.nodes.push(wrangle1);
 network.nodes.push(copy1);
-network.nodes.push(transform1);
+network.nodes.push(wiggle1);
+// network.nodes.push(transform1);
 network.connections.push({ outNode: 'line1', inNode: 'copy1', inPort: 'shape' });
-network.connections.push({ outNode: 'super2', inNode: 'wrangle1', inPort: 'shape' });
+network.connections.push({ outNode: 'grid1', inNode: 'wrangle1', inPort: 'shape' });
 network.connections.push({ outNode: 'wrangle1', inNode: 'copy1', inPort: 'target' });
-network.connections.push({ outNode: 'copy1', inNode: 'transform1', inPort: 'shape' });
-network.renderedNode = 'copy1';
+network.connections.push({ outNode: 'copy1', inNode: 'wiggle1', inPort: 'shape' });
+network.renderedNode = 'wiggle1';
 
 // network.nodes.push(circle1);
 // network.nodes.push(transform1);
@@ -289,6 +299,7 @@ function App() {
 
   const animate = () => {
     const time = (Date.now() - startTime) / 1000.0;
+    wiggle1.setInput('offset', new Vec2(Math.sin(time) * 10, Math.cos(time / 3) * 5));
     // circle1.setInput('position', new Vec2(Math.sin(time / 20) * 100, 0));
     network.run({ $time: time });
 

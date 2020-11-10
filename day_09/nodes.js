@@ -483,6 +483,28 @@ export class SuperformulaNode extends Node {
   }
 }
 
+export class WiggleNode extends Node {
+  constructor(name) {
+    super(name, TYPE_SHAPE);
+    this.addInput('shape', TYPE_SHAPE);
+    this.addInput('offset', TYPE_VEC2);
+    this.addInput('seed', TYPE_INT);
+  }
+
+  run() {
+    const shape = this.inputValue('shape');
+    const offset = this.inputValue('offset');
+    const seed = this.inputValue('seed');
+    Math.seedrandom(seed);
+    const newShape = shape.clone();
+    for (const pt of newShape.points) {
+      pt.x += (Math.random() - 0.5) * offset.x;
+      pt.y += (Math.random() - 0.5) * offset.y;
+    }
+    this.setOutput(newShape);
+  }
+}
+
 export class TransformNode extends Node {
   constructor(name) {
     super(name, TYPE_SHAPE);

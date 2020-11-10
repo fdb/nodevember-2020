@@ -128,6 +128,17 @@ export class Path {
     this.attrs = [];
   }
 
+  clone() {
+    const newPath = new Path();
+    newPath.fill = this.fill ? this.fill.clone() : null;
+    newPath.stroke = this.stroke ? this.stroke.clone() : null;
+    newPath.strokeWidth = this.strokeWidth;
+    newPath.verbs = this.verbs.slice();
+    newPath.points = this.points.map((pt) => pt.clone());
+    newPath.attrs = this.attrs.map((attr) => JSON.parse(JSON.stringify(attr)));
+    return newPath;
+  }
+
   moveTo(pt, attrs) {
     this.verbs.push(PATH_MOVE_TO);
     this.points.push(pt);
