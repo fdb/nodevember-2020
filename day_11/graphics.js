@@ -16,6 +16,7 @@ export class Vec2 {
   }
 }
 
+// Transform kept in row-major order
 // 0 1 2
 // 3 4 5
 // 0 0 1
@@ -31,18 +32,23 @@ export class Transform {
     return new Vec2(x * m[0] + y * m[1] + m[2], x * m[3] + y * m[4] + m[5]);
   }
 
+  transformXY(x, y) {
+    const m = this.m;
+    return [x * m[0] + y * m[1] + m[2], x * m[3] + y * m[4] + m[5]];
+  }
+
   translate(tx, ty) {
     if (tx instanceof Vec2) {
       ty = tx.y;
       tx = tx.x;
     }
     const m = this.m;
-    // this.m[2] = tx;
-    // this.m[5] = ty;
-    m[0] += tx * m[4];
-    m[2] += ty * m[4];
-    m[1] += tx * m[5];
-    m[3] += ty * m[5];
+    // // this.m[2] = tx;
+    // // this.m[5] = ty;
+    // m[0] += tx * m[4];
+    // m[1] += tx * m[5];
+    m[2] += tx;
+    m[5] += ty;
     return this;
   }
 

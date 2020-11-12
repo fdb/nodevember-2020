@@ -312,53 +312,57 @@ function PropsView({ activeNode, onSetInput }) {
 const network = new nodes.Network();
 
 const circle1 = new nodes.CircleNode('circle1');
-circle1.setInput('radius', 5);
+circle1.setInput('radius', new Vec2(5, 80));
+circle1.setInput('fill', new Color(0.73, 0.73, 0.64, 0.6));
+circle1.setInput('epsilon', -0.8);
 circle1.x = 20;
 circle1.y = 20;
 
 const grid1 = new nodes.GridNode('grid1');
-grid1.setInput('columns', 3);
+grid1.setInput('columns', 100);
 grid1.setInput('rows', 3);
-grid1.setInput('width', 300);
-grid1.setInput('height', 300);
+grid1.setInput('width', 500);
+grid1.setInput('height', 50);
 grid1.x = 150;
 grid1.y = 20;
 
 const wrangle1 = new nodes.WrangleNode('wrangle1');
-wrangle1.setInput('expressions', 'pscale = abs(noise2d($pos_x * 0.01, $pos_y * 0.01 + $time) * 1)');
+wrangle1.setInput('expressions', 'pscale = min($time / 4, 1) * abs(noise2d($pos_x * 0.004,  $time * 0.1))');
 wrangle1.x = 150;
-wrangle1.y = 80;
+wrangle1.y = 70;
 
 const mountain1 = new nodes.MountainNode('mountain1');
-
 mountain1.x = 150;
-mountain1.y = 140;
+mountain1.y = 120;
 
 const copy1 = new nodes.CopyToPointsNode('copy1');
 copy1.x = 20;
-copy1.y = 200;
+copy1.y = 170;
 
 const wiggle1 = new nodes.WiggleNode('wiggle1');
 wiggle1.setInput('offset', new Vec2(0, 0));
 wiggle1.x = 20;
-wiggle1.y = 200;
+wiggle1.y = 210;
 
 const transform1 = new nodes.TransformNode('transform1');
 transform1.setInput('translate', new Vec2(1, 10));
-transform1.setInput('scale', new Vec2(1, 1));
+// transform1.setInput('scale', new Vec2(1, 1));
 transform1.x = 20;
-transform1.y = 200;
+transform1.y = 210;
 
 network.nodes.push(circle1);
 network.nodes.push(grid1);
 network.nodes.push(wrangle1);
 network.nodes.push(mountain1);
 network.nodes.push(copy1);
+network.nodes.push(transform1);
 network.connections.push({ outNode: 'circle1', inNode: 'copy1', inPort: 'shape' });
 network.connections.push({ outNode: 'grid1', inNode: 'wrangle1', inPort: 'shape' });
 network.connections.push({ outNode: 'wrangle1', inNode: 'mountain1', inPort: 'shape' });
 network.connections.push({ outNode: 'mountain1', inNode: 'copy1', inPort: 'target' });
-network.renderedNode = 'copy1';
+network.connections.push({ outNode: 'copy1', inNode: 'transform1', inPort: 'shape' });
+
+network.renderedNode = 'transform1';
 
 // Check connections
 for (const conn of network.connections) {
@@ -376,12 +380,12 @@ const simplex = new SimplexNoise(42);
 function App() {
   const [activeNode, setActiveNode] = useState(network.nodes[0]);
   const [version, setVersion] = useState(0);
-  const [uiVisible, setUiVisible] = useState(true);
+  const [uiVisible, setUiVisible] = useState(false);
 
   useEffect(() => {
     setActiveNode(network.nodes.find((node) => node.name === network.renderedNode));
     runNetwork();
-    // window.requestAnimationFrame(animate);
+    window.requestAnimationFrame(animate);
   }, []);
 
   const runNetwork = () => {
@@ -393,7 +397,10 @@ function App() {
   const animate = () => {
     const time = (Date.now() - startTime) / 1000.0;
     mountain1.setInput('offset', new Vec2(simplex.noise2D(time / 1000, 0) * 100, simplex.noise2D(0, time / 1000) * 100));
-    circle1.setInput('radius', 2 + (Math.sin(time / 5) + 1) * 5);
+    // if (time < 8) {
+    //   network.setInput('grid1', 'height', Math.min(time / 8, 1) * 40);
+    // }
+    // circle1.setInput('radius', 2 + (Math.sin(time / 5) + 1) * 5);
     // circle1.setInput('position', new Vec2(Math.sin(time / 20) * 100, 0));
     runNetwork();
     window.requestAnimationFrame(animate);

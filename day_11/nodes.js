@@ -113,8 +113,12 @@ export class Node {
     console.error('Please override the run method in your custom node.');
   }
 
+  get isTimeDependent() {
+    return false;
+  }
+
   runLazy(scope) {
-    if (!this.dirty) return;
+    if (!this.dirty && !this.isTimeDependent) return;
     this.run(scope);
     this.dirty = false;
   }
@@ -142,7 +146,7 @@ export class Network {
       if (conn) {
         const outNode = this.nodes.find((node) => node.name === conn.outNode);
         console.assert(node, `Could not find output node ${conn.outNode}.`);
-        if (outNode.dirty) {
+        if (outNode.dirty || this.isNodeTimeDependent(outNode)) {
           this.runNode(outNode);
         }
         node.setInput(inputName, outNode.outputValue());
@@ -151,11 +155,31 @@ export class Network {
     node.runLazy(this.scope);
   }
 
+  findNode(nodeName, error = true) {
+    const node = this.nodes.find((node) => node.name === nodeName);
+    if (error) {
+      console.assert(node, `Could not find node ${nodeName}.`);
+    }
+    return node;
+  }
+
   setInput(nodeName, portName, value) {
     const node = this.nodes.find((node) => node.name === nodeName);
     console.assert(node, `Could not find node ${nodeName}.`);
     node.setInput(portName, value);
     this.markDirty(nodeName);
+  }
+
+  // Check if the node or any of its dependencies depends on time.
+  isNodeTimeDependent(node) {
+    if (node.isTimeDependent) return true;
+    for (const conn of this.connections) {
+      if (conn.inNode === node.name) {
+        const outNode = this.findNode(conn.outNode);
+        if (this.isNodeTimeDependent(outNode)) return true;
+      }
+    }
+    return false;
   }
 
   markDirty(nodeName) {
@@ -208,7 +232,7 @@ export class CircleNode extends Node {
   constructor(name) {
     super(name, TYPE_SHAPE);
     this.addInput('position', TYPE_VEC2);
-    this.addInput('radius', TYPE_FLOAT, 100);
+    this.addInput('radius', TYPE_VEC2, new Vec2(100, 100));
     this.addInput('epsilon', TYPE_FLOAT, 1.0);
     this.addInput('fill', TYPE_COLOR, new Color(1, 1, 1, 1));
     this.addInput('stroke', TYPE_COLOR, null);
@@ -222,19 +246,20 @@ export class CircleNode extends Node {
     const fill = this.inputValue('fill');
     const stroke = this.inputValue('stroke');
     const strokeWidth = this.inputValue('strokeWidth');
-    const rEpsilon = radius * CIRCLE_EPSILON * this.inputValue('epsilon');
+    const xEpsilon = radius.x * CIRCLE_EPSILON * this.inputValue('epsilon');
+    const yEpsilon = radius.y * CIRCLE_EPSILON * this.inputValue('epsilon');
 
-    const p1 = new Vec2(position.x, position.y - radius);
-    const p2 = new Vec2(position.x + radius, position.y);
-    const p3 = new Vec2(position.x, position.y + radius);
-    const p4 = new Vec2(position.x - radius, position.y);
+    const p1 = new Vec2(position.x, position.y - radius.y);
+    const p2 = new Vec2(position.x + radius.x, position.y);
+    const p3 = new Vec2(position.x, position.y + radius.y);
+    const p4 = new Vec2(position.x - radius.x, position.y);
 
     geo.addStyle(new Style(fill, stroke, strokeWidth));
     geo.moveTo(p1.x, p1.y);
-    geo.curveTo(p1.x + rEpsilon, p1.y, p2.x, p2.y - rEpsilon, p2.x, p2.y);
-    geo.curveTo(p2.x, p2.y + rEpsilon, p3.x + rEpsilon, p3.y, p3.x, p3.y);
-    geo.curveTo(p3.x - rEpsilon, p3.y, p4.x, p4.y + rEpsilon, p4.x, p4.y);
-    geo.curveTo(p4.x, p4.y - rEpsilon, p1.x - rEpsilon, p1.y, p1.x, p1.y);
+    geo.curveTo(p1.x + xEpsilon, p1.y, p2.x, p2.y - yEpsilon, p2.x, p2.y);
+    geo.curveTo(p2.x, p2.y + yEpsilon, p3.x + xEpsilon, p3.y, p3.x, p3.y);
+    geo.curveTo(p3.x - xEpsilon, p3.y, p4.x, p4.y + yEpsilon, p4.x, p4.y);
+    geo.curveTo(p4.x, p4.y - yEpsilon, p1.x - xEpsilon, p1.y, p1.x, p1.y);
     geo.close();
     this.setOutput(geo);
   }
@@ -434,6 +459,10 @@ export class WrangleNode extends Node {
     this.compiledExpressions = [];
   }
 
+  get isTimeDependent() {
+    return this.inputValue('expressions').includes('$time');
+  }
+
   setInput(name, value) {
     super.setInput(name, value);
     if (name === 'expressions') {
@@ -469,6 +498,8 @@ export class WrangleNode extends Node {
     interp.scope['abs'] = Math.abs;
     interp.scope['sin'] = Math.sin;
     interp.scope['cos'] = Math.cos;
+    interp.scope['min'] = Math.min;
+    interp.scope['max'] = Math.max;
     interp.scope['noise2d'] = (x, y) => simplex.noise2D(x, y);
     for (const key of Object.keys(scope)) {
       interp.scope[key] = scope[key];
@@ -593,14 +624,9 @@ export class TransformNode extends Node {
     const transform = new Transform();
     transform.translate(this.inputValue('translate'));
     transform.scale(this.inputValue('scale'));
-    const newPath = new Path();
-    newPath.fill = shape.fill.clone();
-    newPath.verbs = shape.verbs.slice();
-    for (let pt of shape.points) {
-      pt = transform.transformPoint(pt);
-      newPath.points.push(pt);
-    }
-    this.setOutput(newPath);
+    const newShape = shape.clone();
+    newShape.mapPoints((x, y) => transform.transformXY(x, y));
+    this.setOutput(newShape);
   }
 }
 
