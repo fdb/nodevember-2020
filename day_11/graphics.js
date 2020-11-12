@@ -68,6 +68,11 @@ export class Color {
     this.a = a;
   }
 
+  equals(other) {
+    if (!other) return false;
+    return this.r === other.r && this.g === other.g && this.b === other.b && this.a === other.a;
+  }
+
   get visible() {
     return this.a > 0;
   }
@@ -123,10 +128,24 @@ export class LinearGradient {
 
 export class Style {
   constructor(fill, stroke, strokeWidth = 1) {
-    this.fill = fill;
-    this.stroke = stroke;
+    this.fill = fill ? fill.clone() : null;
+    this.stroke = stroke ? stroke.clone() : null;
     this.strokeWidth = strokeWidth;
   }
+
+  clone() {
+    const newStyle = new Style(this.fill, this.stroke, this.strokeWidth);
+    return newStyle;
+  }
+
+  equals(other) {
+    return (
+      ((!this.fill && !other.fill) || this.fill.equals(other.fill)) &&
+      ((!this.stroke && !other.stroke) || this.stroke.equals(other.stroke)) &&
+      this.strokeWidth === other.strokeWidth
+    );
+  }
+
   draw(ctx) {
     if (this.fill && this.fill.visible) {
       this.fill.setFillStyle(ctx);
@@ -147,15 +166,32 @@ const PATH_CTRL = 5;
 
 export const CIRCLE_EPSILON = (4 / 3) * Math.tan(Math.PI / 8);
 
-const ATTRIBUTE_TYPE_U8 = 'u8';
-const ATTRIBUTE_TYPE_I16 = 'i16';
-const ATTRIBUTE_TYPE_F32 = 'f32';
+export const ATTRIBUTE_TYPE_U8 = 'u8';
+export const ATTRIBUTE_TYPE_I16 = 'i16';
+export const ATTRIBUTE_TYPE_F32 = 'f32';
 
 class Attribute {
   constructor(name, type, initialCapacity = 32) {
     this.name = name;
     this.type = type;
     this._expand(initialCapacity);
+  }
+
+  clone(capacity) {
+    const newAttribute = new Attribute(this.name, this.type, capacity);
+    if (this.type === ATTRIBUTE_TYPE_U8) {
+      newAttribute.data = new Uint8Array(this.capacity);
+      newAttribute.data.set(this.data);
+    } else if (this.type === ATTRIBUTE_TYPE_I16) {
+      newAttribute.data = new Int16Array(this.capacity);
+      newAttribute.data.set(this.data);
+    } else if (this.type === ATTRIBUTE_TYPE_F32) {
+      newAttribute.data = new Float32Array(this.capacity);
+      newAttribute.data.set(this.data);
+    } else {
+      throw new Error(`Unknown type ${this.type}`);
+    }
+    return newAttribute;
   }
 
   _expand(newCapacity) {
@@ -184,8 +220,21 @@ class AttributeTable {
     this.capacity = initialCapacity;
   }
 
+  clone() {
+    const newTable = new AttributeTable(this.capacity);
+    for (const key in this.table) {
+      newTable.table[key] = this.table[key].clone(this.capacity);
+    }
+    newTable.size = this.size;
+    return newTable;
+  }
+
   addAttributeType(name, type) {
     this.table[name] = new Attribute(name, type, this.capacity);
+  }
+
+  hasAttribute(name) {
+    return name in this.table;
   }
 
   ensureCapacity(requiredSize) {
@@ -226,6 +275,12 @@ class AttributeTable {
     console.assert(attribute, `Attribute ${key} not found.`);
     return attribute.data[index];
   }
+
+  getArray(key) {
+    const attribute = this.table[key];
+    console.assert(attribute, `Attribute ${key} not found.`);
+    return attribute.data;
+  }
 }
 
 export class Geometry {
@@ -235,24 +290,33 @@ export class Geometry {
     this.contours.addAttributeType('closed', ATTRIBUTE_TYPE_U8);
     this.contours.addAttributeType('style', ATTRIBUTE_TYPE_I16);
 
-    this.styles = [];
-    this.currentStyleIndex = -1;
-
-    // this.styles = new AttributeTable(8);
-    // this.styles.addAttributeType('fill[r]', ATTRIBUTE_TYPE_F32);
-    // this.styles.addAttributeType('fill[g]', ATTRIBUTE_TYPE_F32);
-    // this.styles.addAttributeType('fill[b]', ATTRIBUTE_TYPE_F32);
-    // this.styles.addAttributeType('fill[a]', ATTRIBUTE_TYPE_F32);
-    // this.styles.addAttributeType('stroke[r]', ATTRIBUTE_TYPE_F32);
-    // this.styles.addAttributeType('stroke[g]', ATTRIBUTE_TYPE_F32);
-    // this.styles.addAttributeType('stroke[b]', ATTRIBUTE_TYPE_F32);
-    // this.styles.addAttributeType('stroke[a]', ATTRIBUTE_TYPE_F32);
-    // this.styles.addAttributeType('strokeWidth', ATTRIBUTE_TYPE_F32);
-
     this.commands = new AttributeTable(initialCapacity);
     this.commands.addAttributeType('verb', ATTRIBUTE_TYPE_U8);
     this.commands.addAttributeType('point[x]', ATTRIBUTE_TYPE_F32);
     this.commands.addAttributeType('point[y]', ATTRIBUTE_TYPE_F32);
+
+    this.styles = [];
+    this.currentStyleIndex = -1;
+  }
+
+  clone() {
+    const newGeo = new Geometry();
+    newGeo.contours = this.contours.clone();
+    newGeo.commands = this.commands.clone();
+    newGeo.styles = this.styles.map((style) => style.clone());
+    newGeo.currentStyleIndex = this.currentStyleIndex;
+    return newGeo;
+  }
+
+  mapPoints(fn) {
+    const size = this.commands.size;
+    const xs = this.commands.getArray('point[x]');
+    const ys = this.commands.getArray('point[y]');
+    for (let i = 0; i < size; i++) {
+      const [x, y] = fn(xs[i], ys[i], i, size);
+      xs[i] = x;
+      ys[i] = y;
+    }
   }
 
   moveTo(x, y) {
@@ -282,11 +346,6 @@ export class Geometry {
     this.contours.set(this.contours.size - 1, { closed: 1 });
   }
 
-  addStyle(style) {
-    this.styles.push(style);
-    this.currentStyleIndex = this.styles.length - 1;
-  }
-
   addRect(x, y, w, h) {
     this.moveTo(x, y);
     this.lineTo(x + w, y);
@@ -295,9 +354,10 @@ export class Geometry {
     this.close();
   }
 
-  // addStyle(fill, stroke, strokeWidth=1) {
-
-  // }
+  addStyle(style) {
+    this.styles.push(style);
+    this.currentStyleIndex = this.styles.length - 1;
+  }
 
   draw(ctx) {
     const { contours, commands, styles } = this;
@@ -305,7 +365,7 @@ export class Geometry {
       const offset = contours.get(i, 'offset');
       const closed = contours.get(i, 'closed');
       const style = contours.get(i, 'style');
-      const nextOffset = i < contours.size - 1 ? contours.get(i + 1, 'offset') : this.size;
+      const nextOffset = i < contours.size - 1 ? contours.get(i + 1, 'offset') : commands.size;
       for (let j = offset; j < nextOffset; j++) {
         const verb = commands.get(j, 'verb');
         if (verb === PATH_MOVE_TO) {
@@ -331,6 +391,7 @@ export class Geometry {
         ctx.closePath();
       }
       const drawStyle = styles[style];
+      console.assert(drawStyle, `Style ${style} not found in styles.`);
       drawStyle.draw(ctx);
     }
   }

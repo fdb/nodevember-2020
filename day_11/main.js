@@ -11,7 +11,7 @@ function Viewer({ network, version, uiVisible }) {
   const canvasRef = useRef();
   const contextRef = useRef();
   const [drawPoints, setDrawPoints] = useState(false);
-  const [clearCanvas, setClearCanvas] = useState(false);
+  const [clearCanvas, setClearCanvas] = useState(true);
   useEffect(() => {
     const canvas = canvasRef.current; //document.getElementById('c');
     canvas.style.width = `${canvas.width}px`;
@@ -41,9 +41,12 @@ function Viewer({ network, version, uiVisible }) {
       if (drawPoints) {
         ctx.fillStyle = '#4299e1';
         ctx.beginPath();
-        for (const pt of outputShape.points) {
-          ctx.moveTo(pt.x, pt.y);
-          ctx.arc(pt.x, pt.y, 2, 0, Math.PI * 2);
+        const pointCount = outputShape.commands.size;
+        const xs = outputShape.commands.table['point[x]'].data;
+        const ys = outputShape.commands.table['point[y]'].data;
+        for (let i = 0; i < pointCount; i++) {
+          ctx.moveTo(xs[i], ys[i]);
+          ctx.arc(xs[i], ys[i], 2, 0, Math.PI * 2);
         }
         ctx.fill();
       }
@@ -55,26 +58,125 @@ function Viewer({ network, version, uiVisible }) {
     ctx.restore();
   }, [network, version, drawPoints]);
 
-  return html`<div class="viewer bg-gray-900 flex justify-center items-center">
+  return html`<div class="viewer bg-gray-900 flex flex-col h-full ">
     ${uiVisible &&
-    html`<div class="fixed top-0 left-0 w-screen p-2 text-sm flex align-center bg-gray-800 select-none">
+    html`<div class="p-2 text-sm flex align-center bg-gray-800 select-none">
       <label class="ml-2"
-        ><input class="align-text-middle" type="checkbox" value=${drawPoints} onChange=${() => setDrawPoints((pt) => !pt)} /> Draw
+        ><input class="align-text-middle" type="checkbox" checked=${drawPoints} onChange=${() => setDrawPoints((pt) => !pt)} /> Draw
         Points</label
       >
       <label class="ml-2"
-        ><input class="align-text-middle" type="checkbox" value=${clearCanvas} onChange=${() => setClearCanvas((v) => !v)} /> Clear
+        ><input class="align-text-middle" type="checkbox" checked=${clearCanvas} onChange=${() => setClearCanvas((v) => !v)} /> Clear
         Canvas</label
       >
     </div>`}
-    <canvas width="500" height="500" ref=${canvasRef} style=${{ mixBlendMode: 'difference' }}></canvas>
+    <div class="flex items-center justify-center w-full h-full">
+      <canvas width="500" height="500" ref=${canvasRef} style=${{ mixBlendMode: 'normal' }}></canvas>
+    </div>
   </div>`;
 }
 
-function NetworkView({ activeNode, network, onSelectNode }) {
+const SPREADSHEET_MODE_CONTOURS = 'contours';
+const SPREADSHEET_MODE_COMMANDS = 'commands';
+
+function Spreadsheet({ network, version }) {
+  const [mode, setMode] = useState('contours');
+  const node = network.nodes.find((node) => node.name === network.renderedNode);
+  if (node.output.type !== TYPE_SHAPE) {
+    return html`<div>No spreadsheet for output type ${node.output.type}</div>`;
+  }
+  const geo = node.outputValue();
+
+  let table;
+  if (mode === SPREADSHEET_MODE_CONTOURS) {
+    table = geo.contours;
+  } else if (mode === SPREADSHEET_MODE_COMMANDS) {
+    table = geo.commands;
+  } else {
+    throw new Error(`Invalid table mode ${mode}.`);
+  }
+
+  let headerColumns = [];
+  headerColumns.push(html`<th class="bg-gray-700 text-gray-200 sticky top-0 px-2 py-1">Index</th>`);
+
+  for (const key in table.table) {
+    const attribute = table.table[key];
+    headerColumns.push(html`<th class="bg-gray-700 text-gray-200 sticky top-0 px-2 py-1">${attribute.name}</th>`);
+  }
+
+  const rows = [];
+  for (let i = 0; i < table.size; i++) {
+    let row = [];
+    row.push(html`<td class="px-2 bg-gray-900">${i}</td>`);
+    for (const key in table.table) {
+      row.push(html`<td class="px-2">${table.get(i, key)}</td>`);
+    }
+    rows.push(
+      html`<tr>
+        ${row}
+      </tr>`
+    );
+  }
+
+  return html`<div class="flex flex-col">
+    <div class="bg-gray-800 p-2">
+      <select class="bg-gray-800 text-gray-400 outline-none" onChange=${(e) => setMode(e.target.value)} value=${mode}>
+        <option value=${SPREADSHEET_MODE_CONTOURS}>Contours</option>
+        <option value=${SPREADSHEET_MODE_COMMANDS}>Commands</option>
+      </select>
+    </div>
+    <div style=${{ height: 'calc(100vh - 40px)' }} class="overflow-hidden overflow-y-scroll">
+      <table class="w-full text-left table-collapse ">
+        <thead>
+          <tr>
+            ${headerColumns}
+          </tr>
+        </thead>
+        <tbody class="bg-gray-800 text-sm">
+          ${rows}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+const VIEWER_PANE_VIEWER = 'viewer';
+const VIEWER_PANE_SPREADSHEET = 'spreadsheet';
+
+function ViewerPane({ network, version, uiVisible }) {
+  const [activeTab, setActiveTab] = useState(VIEWER_PANE_VIEWER);
+  const header = html`
+    <header class="flex bg-gray-900">
+      <div
+        class=${`p-2 ${activeTab === VIEWER_PANE_VIEWER ? 'bg-gray-800' : 'bg-gray-900 text-gray-700'}`}
+        onClick=${() => setActiveTab(VIEWER_PANE_VIEWER)}
+      >
+        Viewer
+      </div>
+      <div
+        class=${`p-2 ${activeTab === VIEWER_PANE_SPREADSHEET ? 'bg-gray-800' : 'bg-gray-900 text-gray-700'}`}
+        onClick=${() => setActiveTab(VIEWER_PANE_SPREADSHEET)}
+      >
+        Spreadsheet
+      </div>
+    </header>
+  `;
+  return html`<div class="flex flex-col">
+    ${uiVisible && header}
+    ${activeTab === VIEWER_PANE_VIEWER && html`<${Viewer} network=${network} version=${version} uiVisible=${uiVisible} />`}
+    ${activeTab === VIEWER_PANE_SPREADSHEET && html`<${Spreadsheet} network=${network} version=${version} />`}
+  </div> `;
+}
+
+function NetworkView({ activeNode, network, onSelectNode, onSetRenderedNode }) {
   const nodes = network.nodes.map(
     (node) =>
-      html`<g transform=${`translate(${node.x}, ${node.y})`} class="select-none cursor-pointer" onClick=${() => onSelectNode(node)}>
+      html`<g
+        transform=${`translate(${node.x}, ${node.y})`}
+        class="select-none cursor-pointer"
+        onClick=${() => onSelectNode(node)}
+        onDblClick=${() => onSetRenderedNode(node)}
+      >
         <rect x="0" y="0" width="100" height="30" fill="#4a5568" />
         ${network.renderedNode === node.name && html`<rect x="0" y="0" width="4" height="30" fill="#f6ad55" />`}
         ${activeNode === node && html`<rect x="0" y="0" width="100" height="30" stroke="#a0aec0" stroke-width="1" fill="none" />`}
@@ -223,13 +325,11 @@ grid1.x = 150;
 grid1.y = 20;
 
 const wrangle1 = new nodes.WrangleNode('wrangle1');
-wrangle1.setInput('expressions', 'F.r = abs(noise2d($pos_x * 0.01, $pos_y * 0.01 + $time) * 1)');
+wrangle1.setInput('expressions', 'pscale = abs(noise2d($pos_x * 0.01, $pos_y * 0.01 + $time) * 1)');
 wrangle1.x = 150;
 wrangle1.y = 80;
 
 const mountain1 = new nodes.MountainNode('mountain1');
-mountain1.setInput('amplitude', 100);
-mountain1.setInput('scale', 1000);
 
 mountain1.x = 150;
 mountain1.y = 140;
@@ -276,32 +376,37 @@ const simplex = new SimplexNoise(42);
 function App() {
   const [activeNode, setActiveNode] = useState(network.nodes[0]);
   const [version, setVersion] = useState(0);
-  const [uiVisible, setUiVisible] = useState(false);
+  const [uiVisible, setUiVisible] = useState(true);
 
   useEffect(() => {
     setActiveNode(network.nodes.find((node) => node.name === network.renderedNode));
-    network.run({ $time: 0 });
-    setVersion((version) => version + 1);
-    window.requestAnimationFrame(animate);
+    runNetwork();
+    // window.requestAnimationFrame(animate);
   }, []);
+
+  const runNetwork = () => {
+    const time = (Date.now() - startTime) / 1000.0;
+    network.run({ $time: time });
+    setVersion((version) => version + 1);
+  };
 
   const animate = () => {
     const time = (Date.now() - startTime) / 1000.0;
     mountain1.setInput('offset', new Vec2(simplex.noise2D(time / 1000, 0) * 100, simplex.noise2D(0, time / 1000) * 100));
     circle1.setInput('radius', 2 + (Math.sin(time / 5) + 1) * 5);
     // circle1.setInput('position', new Vec2(Math.sin(time / 20) * 100, 0));
-    network.run({ $time: time });
-
-    setVersion((version) => version + 1);
+    runNetwork();
     window.requestAnimationFrame(animate);
   };
 
+  const setRenderedNode = (node) => {
+    network.renderedNode = node.name;
+    runNetwork();
+  };
+
   const onSetInput = (node, inputName, value) => {
-    node.setInput(inputName, value);
-    // console.log(value);
-    setVersion((version) => version + 1);
-    const time = (Date.now() - startTime) / 1000.0;
-    network.run({ $time: time });
+    network.setInput(node.name, inputName, value);
+    runNetwork();
   };
 
   const toggleUI = () => {
@@ -312,11 +417,17 @@ function App() {
     <button onClick=${toggleUI} style=${{ zIndex: 10, position: 'fixed', right: '10px', top: '10px', outline: 'none' }}>
       <svg width="20" height="20" viewBox="0 0 10 10"><path d="M0 2h8M0 5h8M0 8h8" fill="none" stroke="#a0aec0" /></svg>
     </button>
-    <${Viewer} network=${network} version=${version} uiVisible=${uiVisible} />
+    <${ViewerPane} network=${network} version=${version} uiVisible=${uiVisible} />
     ${uiVisible &&
     html`<div class="sidebar">
       <${PropsView} activeNode=${activeNode} onSetInput=${onSetInput} version=${version} />
-      <${NetworkView} network=${network} activeNode=${activeNode} onSelectNode=${setActiveNode} version=${version} />
+      <${NetworkView}
+        network=${network}
+        activeNode=${activeNode}
+        onSelectNode=${setActiveNode}
+        onSetRenderedNode=${setRenderedNode}
+        version=${version}
+      />
     </div>`}
   </div>`;
 }

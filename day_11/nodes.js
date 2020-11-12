@@ -1,7 +1,21 @@
 import Parser from './parser.js';
 import Scanner, { TokenType } from './scanner.js';
 import Interpreter from './interpreter.js';
-import { Color, Vec2, Path, CIRCLE_EPSILON, toRadians, lerp, Image, Group, LinearGradient, Transform } from './graphics.js';
+import {
+  Color,
+  Vec2,
+  Path,
+  CIRCLE_EPSILON,
+  toRadians,
+  lerp,
+  Image,
+  Group,
+  LinearGradient,
+  Transform,
+  Geometry,
+  Style,
+  ATTRIBUTE_TYPE_F32,
+} from './graphics.js';
 
 class Lox {
   constructor() {
@@ -55,7 +69,7 @@ export class Port {
       case TYPE_COLOR:
         return new Color();
       case TYPE_SHAPE:
-        return new Path();
+        return new Geometry();
     }
   }
 }
@@ -69,6 +83,7 @@ export class Node {
     this.outputNames = [];
     this.inputMap = {};
     this.output = new Port('out', outputType);
+    this.dirty = true;
   }
 
   addInput(name, type, value) {
@@ -83,6 +98,7 @@ export class Node {
 
   setInput(name, value) {
     this.inputMap[name].value = value;
+    this.dirty = true;
   }
 
   outputValue() {
@@ -93,8 +109,14 @@ export class Node {
     this.output.value = value;
   }
 
-  run() {
+  run(scope) {
     console.error('Please override the run method in your custom node.');
+  }
+
+  runLazy(scope) {
+    if (!this.dirty) return;
+    this.run(scope);
+    this.dirty = false;
   }
 }
 
@@ -120,11 +142,30 @@ export class Network {
       if (conn) {
         const outNode = this.nodes.find((node) => node.name === conn.outNode);
         console.assert(node, `Could not find output node ${conn.outNode}.`);
-        this.runNode(outNode);
+        if (outNode.dirty) {
+          this.runNode(outNode);
+        }
         node.setInput(inputName, outNode.outputValue());
       }
     }
-    node.run(this.scope);
+    node.runLazy(this.scope);
+  }
+
+  setInput(nodeName, portName, value) {
+    const node = this.nodes.find((node) => node.name === nodeName);
+    console.assert(node, `Could not find node ${nodeName}.`);
+    node.setInput(portName, value);
+    this.markDirty(nodeName);
+  }
+
+  markDirty(nodeName) {
+    for (const conn of this.connections) {
+      if (conn.outNode !== nodeName) continue;
+      const inNode = this.nodes.find((node) => node.name === conn.inNode);
+      console.assert(inNode, `Could not find node ${conn.inNode}.`);
+      inNode.dirty = true;
+      this.markDirty(inNode.name);
+    }
   }
 }
 
@@ -139,21 +180,27 @@ export class GridNode extends Node {
   }
 
   run() {
-    const path = new Path();
+    const geo = new Geometry();
     const position = this.inputValue('position');
     const width = this.inputValue('width');
     const height = this.inputValue('height');
     const columns = this.inputValue('columns');
     const rows = this.inputValue('rows');
 
+    let first = true;
     for (let i = 0; i < rows; i++) {
       for (let j = 0; j < columns; j++) {
         let x = (width * j) / (columns - 1);
         let y = (height * i) / (rows - 1);
-        path.moveTo(new Vec2(position.x + x - width / 2, position.y + y - height / 2));
+        if (first) {
+          geo.moveTo(position.x + x - width / 2, position.y + y - height / 2);
+          first = false;
+        } else {
+          geo.lineTo(position.x + x - width / 2, position.y + y - height / 2);
+        }
       }
     }
-    this.setOutput(path);
+    this.setOutput(geo);
   }
 }
 
@@ -169,7 +216,7 @@ export class CircleNode extends Node {
   }
 
   run() {
-    const path = new Path();
+    const geo = new Geometry();
     const position = this.inputValue('position');
     const radius = this.inputValue('radius');
     const fill = this.inputValue('fill');
@@ -182,17 +229,14 @@ export class CircleNode extends Node {
     const p3 = new Vec2(position.x, position.y + radius);
     const p4 = new Vec2(position.x - radius, position.y);
 
-    path.moveTo(p1);
-    path.curveTo(new Vec2(p1.x + rEpsilon, p1.y), new Vec2(p2.x, p2.y - rEpsilon), p2);
-    path.curveTo(new Vec2(p2.x, p2.y + rEpsilon), new Vec2(p3.x + rEpsilon, p3.y), p3);
-    path.curveTo(new Vec2(p3.x - rEpsilon, p3.y), new Vec2(p4.x, p4.y + rEpsilon), p4);
-    path.curveTo(new Vec2(p4.x, p4.y - rEpsilon), new Vec2(p1.x - rEpsilon, p1.y), p1);
-    path.close();
-
-    path.fill = fill ? fill.clone() : null;
-    path.stroke = stroke ? stroke.clone() : null;
-    path.strokeWidth = strokeWidth;
-    this.setOutput(path);
+    geo.addStyle(new Style(fill, stroke, strokeWidth));
+    geo.moveTo(p1.x, p1.y);
+    geo.curveTo(p1.x + rEpsilon, p1.y, p2.x, p2.y - rEpsilon, p2.x, p2.y);
+    geo.curveTo(p2.x, p2.y + rEpsilon, p3.x + rEpsilon, p3.y, p3.x, p3.y);
+    geo.curveTo(p3.x - rEpsilon, p3.y, p4.x, p4.y + rEpsilon, p4.x, p4.y);
+    geo.curveTo(p4.x, p4.y - rEpsilon, p1.x - rEpsilon, p1.y, p1.x, p1.y);
+    geo.close();
+    this.setOutput(geo);
   }
 }
 
@@ -301,27 +345,53 @@ export class CopyToPointsNode extends Node {
   run() {
     const shape = this.inputValue('shape');
     const target = this.inputValue('target');
+    const newPointCount = shape.commands.size * target.commands.size;
+    const newShape = new Geometry(newPointCount);
+    newShape.styles = shape.styles.map((style) => style.clone());
+    newShape.currentStyleIndex = shape.currentStyleIndex;
 
-    const outGroup = new Group();
-    //console.log(target);
-    for (let i = 0, l = target.points.length; i < l; i++) {
-      const transform = target.points[i];
-      const attrs = target.attrs[i];
+    const targetPointCount = target.commands.size;
+    const txs = target.commands.getArray('point[x]');
+    const tys = target.commands.getArray('point[y]');
+    const pscales = target.commands.hasAttribute('pscale') ? target.commands.getArray('pscale') : undefined;
+    for (let i = 0; i < targetPointCount; i++) {
+      const offset = newShape.commands.size;
+      for (let j = 0, l = shape.contours.size; j < l; j++) {
+        const newOffset = shape.contours.get(j, 'offset') + offset;
+        const closed = shape.contours.get(j, 'closed');
+        const style = shape.contours.get(j, 'style');
+        newShape.contours.append({ offset: newOffset, closed, style });
+      }
+      for (let j = 0, l = shape.commands.size; j < l; j++) {
+        const verb = shape.commands.get(j, 'verb');
+        let x = shape.commands.get(j, 'point[x]');
+        let y = shape.commands.get(j, 'point[y]');
+        if (pscales) {
+          x *= pscales[i];
+          y *= pscales[i];
+        }
+        x += txs[i];
+        y += tys[i];
+        newShape.commands.append({ verb, 'point[x]': x, 'point[y]': y });
+      }
 
-      let newPath = shape.clone();
-      if (attrs && attrs.pscale !== undefined) {
-        this.scalePath(newPath, attrs.pscale);
-      }
-      if (attrs && attrs['F.r'] !== undefined) {
-        newPath.fill = new Color(attrs['F.r'], attrs['F.r'], attrs['F.r'], 1);
-      }
-      for (const pt of newPath.points) {
-        pt.x += transform.x;
-        pt.y += transform.y;
-      }
-      outGroup.add(newPath);
+      // const transform = target.points[i];
+      // const attrs = target.attrs[i];
+
+      // let newPath = shape.clone();
+      // if (attrs && attrs.pscale !== undefined) {
+      //   this.scalePath(newPath, attrs.pscale);
+      // }
+      // if (attrs && attrs['F.r'] !== undefined) {
+      //   newPath.fill = new Color(attrs['F.r'], attrs['F.r'], attrs['F.r'], 1);
+      // }
+      // for (const pt of newPath.points) {
+      //   pt.x += transform.x;
+      //   pt.y += transform.y;
+      // }
+      // outGroup.add(newPath);
     }
-    this.setOutput(outGroup);
+    this.setOutput(newShape);
   }
 }
 
@@ -360,12 +430,33 @@ export class WrangleNode extends Node {
     super(name, TYPE_SHAPE);
     this.addInput('shape', TYPE_SHAPE);
     this.addInput('expressions', TYPE_STRING);
+    this.lox = new Lox();
+    this.compiledExpressions = [];
+  }
+
+  setInput(name, value) {
+    super.setInput(name, value);
+    if (name === 'expressions') {
+      this.compileExpressions();
+    }
+  }
+
+  compileExpressions() {
+    let expressions = this.inputValue('expressions').split('\n');
+    expressions = expressions.map((expr) => expr.split('='));
+    const compiledExpressions = [];
+    for (const [attr, expr] of expressions) {
+      const compiledExpression = this.compileExpression(this.lox, expr.trim());
+      if (!compiledExpression) return;
+      compiledExpressions.push([attr.trim(), compiledExpression]);
+    }
+    this.compiledExpressions = compiledExpressions;
   }
 
   compileExpression(lox, expr) {
     const scanner = new Scanner(lox, expr);
     scanner.scanTokens();
-    if (lox.hadError) return;
+    if (this.lox.hadError) return;
     const parser = new Parser(lox, scanner.tokens);
     const expression = parser.parse();
     return expression;
@@ -373,16 +464,7 @@ export class WrangleNode extends Node {
 
   run(scope) {
     const shape = this.inputValue('shape');
-    let expressions = this.inputValue('expressions').split('\n');
-    expressions = expressions.map((expr) => expr.split('='));
-    const lox = new Lox();
-    const compiledExpressions = [];
-    for (const [attr, expr] of expressions) {
-      const compiledExpression = this.compileExpression(lox, expr.trim());
-      if (!compiledExpression) return;
-      compiledExpressions.push([attr.trim(), compiledExpression]);
-    }
-    const interp = new Interpreter(lox);
+    const interp = new Interpreter(this.lox);
     const simplex = new SimplexNoise(42);
     interp.scope['abs'] = Math.abs;
     interp.scope['sin'] = Math.sin;
@@ -392,26 +474,25 @@ export class WrangleNode extends Node {
       interp.scope[key] = scope[key];
     }
 
-    const newPath = new Path();
-    newPath.verbs = shape.verbs.slice();
-    for (let i = 0, l = shape.points.length; i < l; i++) {
-      const pt = shape.points[i];
-      let attr = shape.attrs[i];
-      attr = attr === undefined ? undefined : JSON.parse(JSON.stringify(attr));
-      newPath.points.push(pt.clone());
+    const newShape = shape.clone();
+    for (const [attr, _] of this.compiledExpressions) {
+      newShape.commands.addAttributeType(attr, ATTRIBUTE_TYPE_F32);
+    }
+    const pointCount = newShape.commands.size;
+    const xs = newShape.commands.getArray('point[x]');
+    const ys = newShape.commands.getArray('point[y]');
+    for (let i = 0; i < pointCount; i++) {
       interp.scope['$pt'] = i;
-      interp.scope['$pos'] = pt;
-      interp.scope['$pos_x'] = pt.x;
-      interp.scope['$pos_y'] = pt.y;
+      interp.scope['$pos_x'] = xs[i];
+      interp.scope['$pos_y'] = ys[i];
       const attrs = {};
-      for (const [attr, expr] of compiledExpressions) {
+      for (const [attr, expr] of this.compiledExpressions) {
         const result = interp.evaluate(expr);
         attrs[attr] = result;
       }
-      newPath.attrs.push(attrs);
+      newShape.commands.set(i, attrs);
     }
-
-    this.setOutput(newPath);
+    this.setOutput(newShape);
   }
 }
 
@@ -494,10 +575,7 @@ export class WiggleNode extends Node {
     const seed = this.inputValue('seed');
     Math.seedrandom(seed);
     const newShape = shape.clone();
-    for (const pt of newShape.points) {
-      pt.x += (Math.random() - 0.5) * offset.x;
-      pt.y += (Math.random() - 0.5) * offset.y;
-    }
+    newShape.mapPoints((x, y) => [x + (Math.random() - 0.5) * offset.x, y + (Math.random() - 0.5) * offset.y]);
     this.setOutput(newShape);
   }
 }
@@ -544,12 +622,11 @@ export class MountainNode extends Node {
     const seed = this.inputValue('seed');
     const newShape = shape.clone();
     const simplex = new SimplexNoise(seed);
-    for (let pt of newShape.points) {
-      const dx = simplex.noise2D(offset.x + pt.x * scale, 0);
-      const dy = simplex.noise2D(0, offset.y + pt.y * scale);
-      pt.x += dx * amplitude;
-      pt.y += dy * amplitude;
-    }
+    newShape.mapPoints((x, y) => {
+      const dx = simplex.noise2D(offset.x + x * scale, 0);
+      const dy = simplex.noise2D(0, offset.y + y * scale);
+      return [x + dx * amplitude, y + dy * amplitude];
+    });
     this.setOutput(newShape);
   }
 }
