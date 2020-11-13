@@ -464,6 +464,39 @@ export class CopyToPointsNode extends Node {
   }
 }
 
+export class CopyAndTransformNode extends Node {
+  constructor(name) {
+    super(name, TYPE_SHAPE);
+    this.addInput('shape', TYPE_SHAPE);
+    this.addInput('copies', TYPE_INT, 1);
+    this.addInput('order', TYPE_STRING, 'srt');
+    this.addInput('translate', TYPE_VEC2);
+    this.addInput('rotate', TYPE_FLOAT);
+    this.addInput('scale', TYPE_VEC2, new Vec2(1, 1));
+  }
+
+  run() {
+    const shape = this.inputValue('shape');
+    const copies = this.inputValue('copies');
+    const order = this.inputValue('order');
+    const translate = this.inputValue('translate');
+    const rotate = this.inputValue('rotate');
+    const scale = this.inputValue('scale');
+    const geo = new Geometry();
+    const transform = new Transform();
+    for (let i = 0; i < copies; i++) {
+      // transform.identity();
+      // transform.scale(scale.x * Math.min(i, 1), scale.y * Math.min(i, 1));
+      // transform.rotate(rotate * i);
+      transform.translate(translate.x, translate.y);
+      const newShape = shape.clone();
+      transform.transformGeometry(newShape);
+      geo.extend(newShape);
+    }
+    this.setOutput(geo);
+  }
+}
+
 // Scatter normally takes in an arbitrary shape and calculates if the points are in bounds.
 // But I won't do the path calculation code today, so the scatter will just happen within a bounding box.
 export class ScatterPointsNode extends Node {
@@ -664,17 +697,24 @@ export class TransformNode extends Node {
   constructor(name) {
     super(name, TYPE_SHAPE);
     this.addInput('shape', TYPE_SHAPE);
+    this.addInput('order', TYPE_STRING, 'srt');
     this.addInput('translate', TYPE_VEC2);
+    this.addInput('rotate', TYPE_FLOAT);
     this.addInput('scale', TYPE_VEC2, new Vec2(1, 1));
   }
 
   run() {
     const shape = this.inputValue('shape');
+    const order = this.inputValue('order');
+    const translate = this.inputValue('translate');
+    const rotate = this.inputValue('rotate');
+    const scale = this.inputValue('scale');
     const transform = new Transform();
-    transform.translate(this.inputValue('translate'));
-    transform.scale(this.inputValue('scale'));
+    transform.scale(scale.x, scale.y);
+    transform.rotate(rotate);
+    transform.translate(translate.x, translate.y);
     const newShape = shape.clone();
-    newShape.mapPoints((x, y) => transform.transformXY(x, y));
+    transform.transformGeometry(newShape);
     this.setOutput(newShape);
   }
 }

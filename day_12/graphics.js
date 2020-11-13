@@ -25,11 +25,32 @@ export class Transform {
     this.m = [1, 0, 0, 0, 1, 0];
   }
 
+  identity() {
+    this.m[0] = 1;
+    this.m[1] = 0;
+    this.m[2] = 0;
+    this.m[3] = 0;
+    this.m[4] = 1;
+    this.m[5] = 0;
+  }
+
   transformPoint(pt) {
     const m = this.m;
     const x = pt.x;
     const y = pt.y;
     return new Vec2(x * m[0] + y * m[1] + m[2], x * m[3] + y * m[4] + m[5]);
+  }
+
+  transformGeometry(geo) {
+    const m = this.m;
+    const [m0, m1, m2, m3, m4, m5] = m;
+    const xs = geo.commands.getArray('point[x]');
+    const ys = geo.commands.getArray('point[y]');
+    // debugger;
+    for (let i = 0, l = geo.commands.size; i < l; i++) {
+      xs[i] = m0 * xs[i] + m1 * ys[i] + m2;
+      ys[i] = m3 * xs[i] + m4 * ys[i] + m5;
+    }
   }
 
   transformXY(x, y) {
@@ -43,10 +64,6 @@ export class Transform {
       tx = tx.x;
     }
     const m = this.m;
-    // // this.m[2] = tx;
-    // // this.m[5] = ty;
-    // m[0] += tx * m[4];
-    // m[1] += tx * m[5];
     m[2] += tx;
     m[5] += ty;
     return this;
@@ -59,9 +76,35 @@ export class Transform {
     }
     const m = this.m;
     m[0] *= sx;
-    m[1] *= sy;
+    m[1] *= sx;
+    m[2] *= sx;
     m[3] *= sy;
     m[4] *= sy;
+    m[5] *= sy;
+    return this;
+  }
+
+  rotate(degrees) {
+    const theta = toRadians(degrees);
+    const c = Math.cos(theta);
+    const s = Math.sin(theta);
+
+    const m = this.m;
+    const [m11, m12, m13, m21, m22, m23] = m;
+
+    // m[0] = c * m11 + s * m21;
+    // m[1] = c * m12 + s * m22;
+    // m[2] = c * m13 + s * m23;
+
+    // m[3] = -s * m11 + c * m21;
+    // m[4] = -s * m12 + c * m22;
+    // m[5] = -s * m13 + c * m23;
+
+    m[0] = c * m11 + s * m12;
+    m[1] = -s * m11 + c * m12;
+    m[3] = c * m21 + s * m22;
+    m[4] = -s * m21 + c * m22;
+
     return this;
   }
 }
@@ -427,6 +470,7 @@ export class Geometry {
         if (verb === PATH_MOVE_TO) {
           const x = commands.get(j, 'point[x]');
           const y = commands.get(j, 'point[y]');
+          ctx.beginPath();
           ctx.moveTo(x, y);
         } else if (verb === PATH_LINE_TO) {
           const x = commands.get(j, 'point[x]');
