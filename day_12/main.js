@@ -211,7 +211,7 @@ function NetworkView({ activeNode, network, onSelectNode, onSetRenderedNode }) {
   });
 
   return html`<div class="network bg-gray-800">
-    <svg width="300" height="400">
+    <svg width="400" height="400">
       <g transform="translate(0, 0)">${nodes}${conns}</g>
     </svg>
   </div>`;
@@ -365,29 +365,32 @@ trans3.x = 150;
 trans3.y = 120;
 
 const poly1 = new nodes.PolygonNode('poly1');
+poly1.setInput('position', new Vec2(0, 20));
 poly1.setInput('fill', null);
 poly1.setInput('stroke', new Color(1, 0.4, 0.4, 1));
-poly1.setInput('strokeWidth', 10);
+poly1.setInput('strokeWidth', 1);
 poly1.setInput('sides', 3);
-poly1.x = 100;
-poly1.x = 40;
+poly1.x = 80;
+poly1.y = 220;
 
-const line2 = new nodes.CopyToPointsNode('line2');
+const line2 = new nodes.LineNode('line2');
 line2.setInput('point2', new Vec2(0, 0));
-line2.setInput('segments', 5);
-line2.x = 20;
-line2.y = 170;
+line2.setInput('segments', 6);
+line2.x = 200;
+line2.y = 180;
 
-const wrangle1 = new node.WrangleNode('wrangle1');
-wrangle1.setInput('expressions', 'pscale = 1 + $pt * 0.1');
+const wrangle1 = new nodes.WrangleNode('wrangle1');
+wrangle1.setInput('expressions', 'pscale = 1 + $pt * 0.3');
+wrangle1.x = 200;
+wrangle1.y = 220;
 
 const copy1 = new nodes.CopyToPointsNode('copy1');
-copy1.x = 20;
-copy1.y = 170;
+copy1.x = 100;
+copy1.y = 260;
 
 const merge1 = new nodes.MergeNode('merge1');
 merge1.x = 20;
-merge1.y = 210;
+merge1.y = 300;
 
 network.nodes.push(line1);
 network.nodes.push(mountain1);
@@ -445,7 +448,7 @@ function App() {
   useEffect(() => {
     setActiveNode(network.nodes.find((node) => node.name === network.renderedNode));
     runNetwork();
-    // window.requestAnimationFrame(animate);
+    window.requestAnimationFrame(animate);
   }, []);
 
   const runNetwork = () => {
@@ -459,6 +462,7 @@ function App() {
     network.setInput('mountain1', 'offset', new Vec2(time / 10, 0));
     network.setInput('mountain2', 'offset', new Vec2(time / 10, 0.1));
     network.setInput('mountain3', 'offset', new Vec2(time / 10, 0.2));
+    network.setInput('poly1', 'position', new Vec2(0, 20 + Math.sin(time / 5) * 5));
     runNetwork();
     window.requestAnimationFrame(animate);
   };
