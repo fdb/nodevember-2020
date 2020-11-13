@@ -71,7 +71,13 @@ function Viewer({ network, version, uiVisible }) {
       >
     </div>`}
     <div class="flex items-center justify-center w-full h-full">
-      <canvas width="500" height="500" class=${uiVisible ? 'border' : ''} ref=${canvasRef} style=${{ mixBlendMode: 'normal' }}></canvas>
+      <canvas
+        width="500"
+        height="500"
+        class="border border-gray-800 shadow-lg"
+        ref=${canvasRef}
+        style=${{ mixBlendMode: 'normal' }}
+      ></canvas>
     </div>
   </div>`;
 }
@@ -346,8 +352,8 @@ const mountain3 = new nodes.MountainNode('mountain3');
 mountain3.setInput('scale', 2);
 mountain3.setInput('offset', new Vec2(0, 0.2));
 mountain3.setInput('amplitude', new Vec2(0, 50));
-mountain2.x = 280;
-mountain2.y = 70;
+mountain3.x = 280;
+mountain3.y = 70;
 
 const trans1 = new nodes.TransformNode('trans1');
 trans1.setInput('translate', new Vec2(0, 30));
@@ -361,14 +367,14 @@ trans2.y = 120;
 
 const trans3 = new nodes.TransformNode('trans3');
 trans3.setInput('translate', new Vec2(0, 60));
-trans3.x = 150;
+trans3.x = 280;
 trans3.y = 120;
 
 const poly1 = new nodes.PolygonNode('poly1');
 poly1.setInput('position', new Vec2(0, 20));
 poly1.setInput('fill', null);
 poly1.setInput('stroke', new Color(1, 0.4, 0.4, 1));
-poly1.setInput('strokeWidth', 1);
+poly1.setInput('strokeWidth', 0.25);
 poly1.setInput('sides', 3);
 poly1.x = 80;
 poly1.y = 220;
@@ -462,7 +468,7 @@ function App() {
     network.setInput('mountain1', 'offset', new Vec2(time / 10, 0));
     network.setInput('mountain2', 'offset', new Vec2(time / 10, 0.1));
     network.setInput('mountain3', 'offset', new Vec2(time / 10, 0.2));
-    network.setInput('poly1', 'position', new Vec2(0, 20 + Math.sin(time / 5) * 5));
+    network.setInput('poly1', 'position', new Vec2(0, 20 + Math.sin(time / 5) * 10));
     runNetwork();
     window.requestAnimationFrame(animate);
   };
