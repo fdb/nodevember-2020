@@ -1,6 +1,4 @@
-// Nodevember day 10 - Paint
-// Add a simple layer system that renders but doesn't need to clear.
-// I also want to introduce better support for attributes using a table-based approach, where all attributes live in a single table.
+// Nodevember day 12 - Ancient
 
 import { html, render, useEffect, useState, useRef } from '../third_party/preact-htm.min.js';
 import { Color, LinearGradient, Vec2, ATTRIBUTE_TYPE_U8, ATTRIBUTE_TYPE_I16 } from './graphics.js';
@@ -328,53 +326,104 @@ function PropsView({ activeNode, onSetInput }) {
 
 const network = new nodes.Network();
 
-const poly1 = new nodes.PolygonNode('poly1');
-// poly1.setInput('position', new Vec2(150, 0));
-// poly1.setInput('radius', 20);
-poly1.setInput('fill', null);
-poly1.setInput('stroke', new Color(1, 0.4, 0.4, 1));
-poly1.setInput('strokeWidth', 1);
-poly1.setInput('sides', 3);
-poly1.x = 150;
-poly1.y = 20;
-
-const transform1 = new nodes.TransformNode('transform1');
-transform1.x = 150;
-transform1.y = 80;
-
 const line1 = new nodes.LineNode('line1');
-line1.setInput('point2', new Vec2(100, 0));
+line1.setInput('point1', new Vec2(-250, 0));
+line1.setInput('point2', new Vec2(250, 0));
+line1.setInput('segments', 100);
 line1.x = 20;
 line1.y = 20;
 
+const mountain1 = new nodes.MountainNode('mountain1');
+mountain1.setInput('scale', 2);
+mountain1.setInput('amplitude', new Vec2(0, 50));
+mountain1.x = 20;
+mountain1.y = 70;
+
+const mountain2 = new nodes.MountainNode('mountain2');
+mountain2.setInput('scale', 2);
+mountain2.setInput('offset', new Vec2(0, 0.1));
+mountain2.setInput('amplitude', new Vec2(0, 50));
+mountain2.x = 150;
+mountain2.y = 70;
+
+const mountain3 = new nodes.MountainNode('mountain3');
+mountain3.setInput('scale', 2);
+mountain3.setInput('offset', new Vec2(0, 0.2));
+mountain3.setInput('amplitude', new Vec2(0, 50));
+mountain3.x = 280;
+mountain3.y = 70;
+
+const trans1 = new nodes.TransformNode('trans1');
+trans1.setInput('translate', new Vec2(0, 30));
+trans1.x = 40;
+trans1.y = 120;
+
+const trans2 = new nodes.TransformNode('trans2');
+trans2.setInput('translate', new Vec2(0, 30));
+trans2.x = 150;
+trans2.y = 120;
+
+const trans3 = new nodes.TransformNode('trans3');
+trans3.setInput('translate', new Vec2(0, 60));
+trans3.x = 280;
+trans3.y = 120;
+
+const poly1 = new nodes.PolygonNode('poly1');
+poly1.setInput('position', new Vec2(0, 20));
+poly1.setInput('fill', null);
+poly1.setInput('stroke', new Color(1, 0.4, 0.4, 1));
+poly1.setInput('strokeWidth', 0.25);
+poly1.setInput('sides', 3);
+poly1.x = 80;
+poly1.y = 220;
+
+const line2 = new nodes.LineNode('line2');
+line2.setInput('point2', new Vec2(0, 0));
+line2.setInput('segments', 6);
+line2.x = 200;
+line2.y = 180;
+
 const wrangle1 = new nodes.WrangleNode('wrangle1');
 wrangle1.setInput('expressions', 'pscale = 1 + $pt * 0.3');
-wrangle1.x = 150;
-wrangle1.y = 100;
+wrangle1.x = 200;
+wrangle1.y = 220;
 
-const copy1 = new nodes.CopyAndTransformNode('copy1');
-copy1.setInput('copies', 10);
-copy1.setInput('rotate', 360 / 10);
+const copy1 = new nodes.CopyToPointsNode('copy1');
 copy1.x = 100;
 copy1.y = 260;
 
-// const merge1 = new nodes.MergeNode('merge1');
-// merge1.x = 20;
-// merge1.y = 300;
+const merge1 = new nodes.MergeNode('merge1');
+merge1.x = 20;
+merge1.y = 300;
 
 network.nodes.push(line1);
+network.nodes.push(mountain1);
+network.nodes.push(mountain2);
+network.nodes.push(mountain3);
+network.nodes.push(trans1);
+network.nodes.push(trans2);
+network.nodes.push(trans3);
+
 network.nodes.push(poly1);
-// network.nodes.push(wrangle1);
+network.nodes.push(line2);
+network.nodes.push(wrangle1);
 network.nodes.push(copy1);
-network.nodes.push(transform1);
+network.nodes.push(merge1);
 
-// network.nodes.push(merge1);
+network.connections.push({ outNode: 'line1', inNode: 'trans1', inPort: 'shape' });
+network.connections.push({ outNode: 'line1', inNode: 'mountain1', inPort: 'shape' });
+network.connections.push({ outNode: 'line1', inNode: 'mountain2', inPort: 'shape' });
+network.connections.push({ outNode: 'line1', inNode: 'mountain3', inPort: 'shape' });
+network.connections.push({ outNode: 'mountain1', inNode: 'merge1', inPort: 'shape1' });
+network.connections.push({ outNode: 'mountain2', inNode: 'trans2', inPort: 'shape' });
+network.connections.push({ outNode: 'trans2', inNode: 'merge1', inPort: 'shape2' });
+network.connections.push({ outNode: 'mountain3', inNode: 'trans3', inPort: 'shape' });
+network.connections.push({ outNode: 'trans3', inNode: 'merge1', inPort: 'shape3' });
 
-network.connections.push({ outNode: 'poly1', inNode: 'transform1', inPort: 'shape' });
 network.connections.push({ outNode: 'poly1', inNode: 'copy1', inPort: 'shape' });
-// network.connections.push({ outNode: 'poly1', inNode: 'wrangle1', inPort: 'shape' });
-// network.connections.push({ outNode: 'wrangle1', inNode: 'copy1', inPort: 'target' });
-// network.connections.push({ outNode: 'copy1', inNode: 'merge1', inPort: 'shape4' });
+network.connections.push({ outNode: 'line2', inNode: 'wrangle1', inPort: 'shape' });
+network.connections.push({ outNode: 'wrangle1', inNode: 'copy1', inPort: 'target' });
+network.connections.push({ outNode: 'copy1', inNode: 'merge1', inPort: 'shape4' });
 
 // network.connections.push({ outNode: 'mountain1', inNode: 'copy1', inPort: 'shape' });
 // network.connections.push({ outNode: 'grid1', inNode: 'wrangle1', inPort: 'shape' });
@@ -382,7 +431,7 @@ network.connections.push({ outNode: 'poly1', inNode: 'copy1', inPort: 'shape' })
 // network.connections.push({ outNode: 'scatter1', inNode: 'copy1', inPort: 'target' });
 // network.connections.push({ outNode: 'copy1', inNode: 'transform1', inPort: 'shape' });
 
-network.renderedNode = 'transform1';
+network.renderedNode = 'merge1';
 
 // Check connections
 for (const conn of network.connections) {
@@ -403,7 +452,7 @@ function App() {
   useEffect(() => {
     setActiveNode(network.nodes.find((node) => node.name === network.renderedNode));
     runNetwork();
-    // window.requestAnimationFrame(animate);
+    window.requestAnimationFrame(animate);
   }, []);
 
   const runNetwork = () => {
@@ -414,10 +463,10 @@ function App() {
 
   const animate = () => {
     const time = (Date.now() - startTime) / 1000.0;
-    // network.setInput('mountain1', 'offset', new Vec2(time / 10, 0));
-    // network.setInput('mountain2', 'offset', new Vec2(time / 10, 0.1));
-    // network.setInput('mountain3', 'offset', new Vec2(time / 10, 0.2));
-    // network.setInput('poly1', 'position', new Vec2(0, 20 + Math.sin(time / 5) * 10));
+    network.setInput('mountain1', 'offset', new Vec2(time / 10, 0));
+    network.setInput('mountain2', 'offset', new Vec2(time / 10, 0.1));
+    network.setInput('mountain3', 'offset', new Vec2(time / 10, 0.2));
+    network.setInput('poly1', 'position', new Vec2(0, 20 + Math.sin(time / 5) * 10));
     runNetwork();
     window.requestAnimationFrame(animate);
   };
