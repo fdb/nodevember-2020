@@ -485,9 +485,8 @@ export class CopyAndTransformNode extends Node {
     const geo = new Geometry();
     const transform = new Transform();
     for (let i = 0; i < copies; i++) {
-      // transform.identity();
-      // transform.scale(scale.x * Math.min(i, 1), scale.y * Math.min(i, 1));
-      // transform.rotate(rotate * i);
+      transform.scale(scale.x, scale.y);
+      transform.rotate(rotate);
       transform.translate(translate.x, translate.y);
       const newShape = shape.clone();
       transform.transformGeometry(newShape);

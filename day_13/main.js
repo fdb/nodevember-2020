@@ -69,13 +69,7 @@ function Viewer({ network, version, uiVisible }) {
       >
     </div>`}
     <div class="flex items-center justify-center w-full h-full">
-      <canvas
-        width="500"
-        height="500"
-        class="border border-gray-800 shadow-lg"
-        ref=${canvasRef}
-        style=${{ mixBlendMode: 'normal' }}
-      ></canvas>
+      <canvas width="500" height="500" class="" ref=${canvasRef} style=${{ mixBlendMode: 'normal' }}></canvas>
     </div>
   </div>`;
 }
@@ -327,23 +321,17 @@ function PropsView({ activeNode, onSetInput }) {
 const network = new nodes.Network();
 
 const poly1 = new nodes.PolygonNode('poly1');
-// poly1.setInput('position', new Vec2(150, 0));
-// poly1.setInput('radius', 20);
+poly1.setInput('position', new Vec2(-100, -100));
 poly1.setInput('fill', null);
 poly1.setInput('stroke', new Color(1, 0.4, 0.4, 1));
-poly1.setInput('strokeWidth', 1);
+poly1.setInput('strokeWidth', 0.3);
 poly1.setInput('sides', 3);
-poly1.x = 150;
+poly1.x = 20;
 poly1.y = 20;
 
 const transform1 = new nodes.TransformNode('transform1');
 transform1.x = 150;
 transform1.y = 80;
-
-const line1 = new nodes.LineNode('line1');
-line1.setInput('point2', new Vec2(100, 0));
-line1.x = 20;
-line1.y = 20;
 
 const wrangle1 = new nodes.WrangleNode('wrangle1');
 wrangle1.setInput('expressions', 'pscale = 1 + $pt * 0.3');
@@ -351,24 +339,25 @@ wrangle1.x = 150;
 wrangle1.y = 100;
 
 const copy1 = new nodes.CopyAndTransformNode('copy1');
-copy1.setInput('copies', 10);
-copy1.setInput('rotate', 360 / 10);
-copy1.x = 100;
-copy1.y = 260;
+copy1.setInput('copies', 300);
+copy1.setInput('rotate', 0);
+// copy1.setInput('translate', new Vec2(0.37, 0.36));
+// copy1.setInput('translate', new Vec2(0.37, 0.36));
+copy1.x = 20;
+copy1.y = 80;
 
 // const merge1 = new nodes.MergeNode('merge1');
 // merge1.x = 20;
 // merge1.y = 300;
 
-network.nodes.push(line1);
 network.nodes.push(poly1);
 // network.nodes.push(wrangle1);
 network.nodes.push(copy1);
-network.nodes.push(transform1);
+// network.nodes.push(transform1);
 
 // network.nodes.push(merge1);
 
-network.connections.push({ outNode: 'poly1', inNode: 'transform1', inPort: 'shape' });
+// network.connections.push({ outNode: 'poly1', inNode: 'transform1', inPort: 'shape' });
 network.connections.push({ outNode: 'poly1', inNode: 'copy1', inPort: 'shape' });
 // network.connections.push({ outNode: 'poly1', inNode: 'wrangle1', inPort: 'shape' });
 // network.connections.push({ outNode: 'wrangle1', inNode: 'copy1', inPort: 'target' });
@@ -380,7 +369,7 @@ network.connections.push({ outNode: 'poly1', inNode: 'copy1', inPort: 'shape' })
 // network.connections.push({ outNode: 'scatter1', inNode: 'copy1', inPort: 'target' });
 // network.connections.push({ outNode: 'copy1', inNode: 'transform1', inPort: 'shape' });
 
-network.renderedNode = 'transform1';
+network.renderedNode = 'copy1';
 
 // Check connections
 for (const conn of network.connections) {
@@ -396,12 +385,12 @@ for (const conn of network.connections) {
 function App() {
   const [activeNode, setActiveNode] = useState(network.nodes[0]);
   const [version, setVersion] = useState(0);
-  const [uiVisible, setUiVisible] = useState(true);
+  const [uiVisible, setUiVisible] = useState(false);
 
   useEffect(() => {
     setActiveNode(network.nodes.find((node) => node.name === network.renderedNode));
     runNetwork();
-    // window.requestAnimationFrame(animate);
+    window.requestAnimationFrame(animate);
   }, []);
 
   const runNetwork = () => {
@@ -412,6 +401,11 @@ function App() {
 
   const animate = () => {
     const time = (Date.now() - startTime) / 1000.0;
+    if (time < 3.0) {
+      network.setInput('copy1', 'translate', new Vec2((time / 3) * 0.37, (time / 3) * 0.36));
+    } else {
+      network.setInput('copy1', 'rotate', (time - 3) / 30.0);
+    }
     // network.setInput('mountain1', 'offset', new Vec2(time / 10, 0));
     // network.setInput('mountain2', 'offset', new Vec2(time / 10, 0.1));
     // network.setInput('mountain3', 'offset', new Vec2(time / 10, 0.2));
