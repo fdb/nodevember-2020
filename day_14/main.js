@@ -504,12 +504,16 @@ function App() {
 
   const setRenderedNode = (node) => {
     network.renderedNode = node.name;
-    runNetwork();
+    if (!isAnimating) {
+      runNetwork();
+    }
   };
 
   const onSetInput = (node, inputName, value) => {
     network.setInput(node.name, inputName, value);
-    runNetwork();
+    if (!isAnimating) {
+      runNetwork();
+    }
   };
 
   const toggleUI = () => {
