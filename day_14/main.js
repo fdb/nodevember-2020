@@ -74,7 +74,13 @@ function Viewer({ network, version, uiVisible }) {
       >
     </div>`}
     <div class="flex items-center justify-center w-full h-full">
-      <canvas width="500" height="500" class="" ref=${canvasRef} style=${{ mixBlendMode: 'normal' }}></canvas>
+      <canvas
+        width="500"
+        height="500"
+        class="border border-gray-800 shadow-lg"
+        ref=${canvasRef}
+        style=${{ mixBlendMode: 'normal' }}
+      ></canvas>
     </div>
   </div>`;
 }
@@ -430,12 +436,13 @@ for (const conn of network.connections) {
   console.assert(inPortResult, `Connection ${connString}: could not find input port ${conn.inPort} for node ${conn.inNode}.`);
 }
 
-const simplex = new SimplexNoise(42);
+// const simplex = new SimplexNoise(101);
+const simplex = new SimplexNoise(102);
 
 function App() {
   const [activeNode, setActiveNode] = useState(network.nodes[0]);
   const [version, setVersion] = useState(0);
-  const [uiVisible, setUiVisible] = useState(true);
+  const [uiVisible, setUiVisible] = useState(false);
 
   useEffect(() => {
     setActiveNode(network.nodes.find((node) => node.name === network.renderedNode));
@@ -451,20 +458,25 @@ function App() {
 
   const animate = () => {
     const time = (Date.now() - startTime) / 1000.0;
+    const r = simplex.noise2D(2539, time * 0.05);
     const m = simplex.noise2D(2539, time * 0.01);
     const n1 = simplex.noise2D(7917, time * 0.1);
-    const n2 = simplex.noise2D(2833, time * 0.04);
+    const n2 = simplex.noise2D(2833, time * 0.04 + 6);
     const n3 = simplex.noise2D(3623, time * 0.05);
     const a = simplex.noise2D(4643, time * 0.03);
     const b = simplex.noise2D(3001, time * 0.01);
-    network.setInput('super1', 'm', remap(m, -1, 1, 1, 5));
+    const strokeWidth = simplex.noise2D(3163, time * 0.04);
+    const copies = simplex.noise2D(3571, time * 0.04);
 
+    network.setInput('super1', 'radius', remap(r, -1, 1, 10, 40));
+    network.setInput('super1', 'm', remap(m, -1, 1, 1, 5));
     network.setInput('super1', 'n1', remap(n1, -1, 1, 0, 5));
     network.setInput('super1', 'n2', remap(n2, -1, 1, 0, 5));
     network.setInput('super1', 'n3', remap(n3, -1, 1, 0, 5));
     network.setInput('super1', 'a', remap(a, -1, 1, 0, 10));
     network.setInput('super1', 'b', remap(b, -1, 1, 0, 10));
-    // network.setInput('super1', 'a', remap(a, -1, 1, 0, 5));
+    network.setInput('super1', 'strokeWidth', remap(strokeWidth, -1, 1, 0.5, 3));
+    network.setInput('copy1', 'copies', remap(copies, -1, 1, 1, 6));
 
     // network.setInput('mountain1', 'offset', new Vec2(time / 10, 0));
     // network.setInput('mountain2', 'offset', new Vec2(time / 10, 0.1));
