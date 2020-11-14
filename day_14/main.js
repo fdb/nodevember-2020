@@ -439,10 +439,13 @@ for (const conn of network.connections) {
 // const simplex = new SimplexNoise(101);
 let simplex = new SimplexNoise(102);
 
+let isAnimating = true;
+
 function App() {
   const [activeNode, setActiveNode] = useState(network.nodes[0]);
   const [version, setVersion] = useState(0);
   const [uiVisible, setUiVisible] = useState(false);
+  // const [isAnimating, setIsAnimating] = useState(true);
 
   useEffect(() => {
     setActiveNode(network.nodes.find((node) => node.name === network.renderedNode));
@@ -451,16 +454,24 @@ function App() {
     document.querySelector('canvas').addEventListener('click', () => {
       simplex = new SimplexNoise(Math.random() * 100000);
     });
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        isAnimating = !isAnimating;
+        if (isAnimating) {
+          window.requestAnimationFrame(animate);
+        }
+      }
+    });
   }, []);
 
   const runNetwork = () => {
-    const time = (Date.now() - startTime) / 1000.0;
+    const time = (Date.now() - startTime) / 750.0;
     network.run({ $time: time });
     setVersion((version) => version + 1);
   };
 
   const animate = () => {
-    const time = (Date.now() - startTime) / 1000.0;
+    const time = (Date.now() - startTime) / 750.0;
     const r = simplex.noise2D(2539, time * 0.05);
     const m = simplex.noise2D(2539, time * 0.01);
     const n1 = simplex.noise2D(7917, time * 0.1);
@@ -486,7 +497,9 @@ function App() {
     // network.setInput('mountain3', 'offset', new Vec2(time / 10, 0.2));
     // network.setInput('poly1', 'position', new Vec2(0, 20 + Math.sin(time / 5) * 10));
     runNetwork();
-    window.requestAnimationFrame(animate);
+    if (isAnimating) {
+      window.requestAnimationFrame(animate);
+    }
   };
 
   const setRenderedNode = (node) => {
