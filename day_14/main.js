@@ -437,7 +437,7 @@ for (const conn of network.connections) {
 }
 
 // const simplex = new SimplexNoise(101);
-const simplex = new SimplexNoise(102);
+let simplex = new SimplexNoise(102);
 
 function App() {
   const [activeNode, setActiveNode] = useState(network.nodes[0]);
@@ -448,6 +448,9 @@ function App() {
     setActiveNode(network.nodes.find((node) => node.name === network.renderedNode));
     runNetwork();
     window.requestAnimationFrame(animate);
+    document.querySelector('canvas').addEventListener('click', () => {
+      simplex = new SimplexNoise(Math.random() * 100000);
+    });
   }, []);
 
   const runNetwork = () => {
