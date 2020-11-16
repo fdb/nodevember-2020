@@ -152,7 +152,7 @@ function Spreadsheet({ network, version }) {
         <option value=${SPREADSHEET_MODE_COMMANDS}>Commands</option>
       </select>
     </div>
-    <div style=${{ height: 'calc(100vh - 40px)' }} class="overflow-hidden overflow-y-scroll">
+    <div style=${{ height: 'calc(100vh - 40px)' }} class="overflow-hidden overflow-y-auto">
       <table class="w-full text-left table-collapse ">
         <thead>
           <tr>
@@ -339,13 +339,6 @@ function PropsView({ activeNode, onSetInput }) {
 
 const network = new nodes.Network();
 
-const rect1 = new nodes.RectNode('rect1');
-rect1.setInput('size', new Vec2(5, 5));
-rect1.setInput('fill', null);
-rect1.setInput('stroke', new Color(1, 1, 1, 1));
-rect1.x = 20;
-rect1.y = 20;
-
 const super1 = new nodes.SuperformulaNode('super1');
 super1.setInput('radius', 5);
 super1.setInput('fill', null);
@@ -370,7 +363,7 @@ toImage1.y = 140;
 
 const halftone1 = new nodes.HalftoneNode('halftone1');
 halftone1.x = 20;
-halftone1.y = 200;
+halftone1.y = 180;
 
 // const merge1 = new nodes.MergeNode('merge1');
 // merge1.x = 20;
@@ -387,18 +380,16 @@ halftone1.y = 200;
 // network.nodes.push(poly1);
 // network.nodes.push(wrangle1);
 network.nodes.push(super1);
-network.nodes.push(rect1);
+// network.nodes.push(rect1);
 network.nodes.push(copy1);
 network.nodes.push(transform1);
-network.nodes.push(toImage1);
-network.nodes.push(halftone1);
+// network.nodes.push(toImage1);
+// network.nodes.push(halftone1);
 
 // network.nodes.push(merge1);
 
 network.connections.push({ outNode: 'super1', inNode: 'transform1', inPort: 'shape' });
 network.connections.push({ outNode: 'transform1', inNode: 'copy1', inPort: 'shape' });
-network.connections.push({ outNode: 'copy1', inNode: 'toImage1', inPort: 'shape' });
-network.connections.push({ outNode: 'toImage1', inNode: 'halftone1', inPort: 'image' });
 
 network.renderedNode = 'copy1';
 
@@ -501,7 +492,7 @@ function App() {
   };
 
   return html`<div class=${`app ${uiVisible ? 'ui-visible' : 'ui-hidden'}`}>
-    <button onClick=${toggleUI} style=${{ zIndex: 10, position: 'fixed', right: '10px', top: '10px', outline: 'none' }}>
+    <button onClick=${toggleUI} style=${{ zIndex: 10, position: 'fixed', right: '15px', top: '15px', outline: 'none' }}>
       <svg width="20" height="20" viewBox="0 0 10 10"><path d="M0 2h8M0 5h8M0 8h8" fill="none" stroke="#a0aec0" /></svg>
     </button>
     <${ViewerPane} network=${network} version=${version} uiVisible=${uiVisible} bordered=${true} />

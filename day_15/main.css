@@ -12,6 +12,20 @@
   grid-template-columns: 1fr 400px;
 }
 
+::-webkit-scrollbar {
+  width: 0.5rem;
+  height: 0.5rem;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #4a5568;
+  border-radius: 0.25rem;
+}
+
+::-webkit-scrollbar-track {
+  background-color: #2d3748;
+}
+
 .viewer {
 }
 
@@ -36,8 +50,9 @@
 .props {
   overflow: hidden;
   position: relative;
-  overflow-y: scroll;
+  overflow-y: auto;
 }
+
 .props > div:first-child {
   position: sticky;
   top: 0;
