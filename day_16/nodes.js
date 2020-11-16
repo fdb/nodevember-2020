@@ -1,46 +1,7 @@
-import Parser from './parser.js';
-import Scanner, { TokenType } from './scanner.js';
-import Interpreter from './interpreter.js';
-import {
-  Color,
-  Vec2,
-  Path,
-  CIRCLE_EPSILON,
-  toRadians,
-  lerp,
-  Image,
-  Group,
-  LinearGradient,
-  Transform,
-  Geometry,
-  Style,
-  ATTRIBUTE_TYPE_F32,
-} from './graphics.js';
+import { Color, Vec2, CIRCLE_EPSILON, toRadians, lerp, Image, Transform, Geometry, Style, ATTRIBUTE_TYPE_F32 } from './graphics.js';
+import Lox from './lox.js';
 
 const TWO_PI = Math.PI * 2;
-
-class Lox {
-  constructor() {
-    this.hadError = false;
-  }
-
-  error(line, message) {
-    this.report(line, '', message);
-  }
-
-  parseError(token, message) {
-    if (token.type === TokenType.EOF) {
-      this.report(token.line, ' at end', message);
-    } else {
-      this.report(token.line, " at '" + token.lexeme + "'", message);
-    }
-  }
-
-  report(line, where, message) {
-    console.error(`[line ${line}] Error ${where}: ${message}`);
-    this.hadError = true;
-  }
-}
 
 export const TYPE_VEC2 = 'vec2';
 export const TYPE_FLOAT = 'float';
@@ -420,14 +381,14 @@ export class SpiralNode extends Node {
   }
 }
 
-const RULE_RE = /^([a-zA-Z]+)\s*=\s*(.*)$/
+const RULE_RE = /^([a-zA-Z]+)\s*=\s*(.*)$/;
 
 export class LsystemNode extends Node {
   constructor(name) {
     super(name, TYPE_SHAPE);
-    this.addInput('predicate', TYPE_STRING, 'FFAB')
-    this.addInput('rule1', TYPE_STRING, 'A=[+FF][-FF]')
-    this.addInput('rule2', TYPE_STRING, 'A=[+FF][-FF]')
+    this.addInput('predicate', TYPE_STRING, 'FFAB');
+    this.addInput('rule1', TYPE_STRING, 'A=[+FF][-FF]');
+    this.addInput('rule2', TYPE_STRING, 'A=[+FF][-FF]');
   }
 
   run() {
@@ -449,16 +410,13 @@ export class LsystemNode extends Node {
     const expandedRules = this._expandRules(predicate, rules);
     console.log(expandedRules);
     const geo = new Geometry();
-    geo.addStyle(new Style(null, new Color(1,1,1,1), 1));
+    geo.addStyle(new Style(null, new Color(1, 1, 1, 1), 1));
     geo.moveTo(0, 0);
     geo.lineTo(0, -100);
     this.setOutput(geo);
   }
 
-  _expandRules(predicate, rules, depth) {
-    
-
-  }
+  _expandRules(predicate, rules, depth) {}
 }
 
 export class ConnectNode extends Node {
@@ -637,32 +595,21 @@ export class WrangleNode extends Node {
     expressions = expressions.map((expr) => expr.split('='));
     const compiledExpressions = [];
     for (const [attr, expr] of expressions) {
-      const compiledExpression = this.compileExpression(this.lox, expr.trim());
+      const compiledExpression = this.compileExpression(expr.trim());
       if (!compiledExpression) return;
       compiledExpressions.push([attr.trim(), compiledExpression]);
     }
     this.compiledExpressions = compiledExpressions;
   }
 
-  compileExpression(lox, expr) {
-    const scanner = new Scanner(lox, expr);
-    scanner.scanTokens();
-    if (this.lox.hadError) return;
-    const parser = new Parser(lox, scanner.tokens);
-    const expression = parser.parse();
+  compileExpression(expr) {
+    const expression = this.lox.parse(expr);
     return expression;
   }
 
   run(scope) {
     const shape = this.inputValue('shape');
-    const interp = new Interpreter(this.lox);
-    const simplex = new SimplexNoise(42);
-    interp.scope['abs'] = Math.abs;
-    interp.scope['sin'] = Math.sin;
-    interp.scope['cos'] = Math.cos;
-    interp.scope['min'] = Math.min;
-    interp.scope['max'] = Math.max;
-    interp.scope['noise2d'] = (x, y) => simplex.noise2D(x, y);
+    const interp = this.lox.interpreter;
     for (const key of Object.keys(scope)) {
       interp.scope[key] = scope[key];
     }

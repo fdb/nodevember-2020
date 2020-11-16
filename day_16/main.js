@@ -347,12 +347,25 @@ const lsys1 = new nodes.LsystemNode('lsys1');
 lsys1.x = 20;
 lsys1.y = 20;
 
-network.nodes.push(lsys1);
+const circle1 = new nodes.CircleNode('circle1');
+circle1.setInput('radius', new Vec2(3, 3));
+const grid1 = new nodes.GridNode('grid1');
+const wrangle1 = new nodes.WrangleNode('wrangle1');
+wrangle1.setInput('expressions', 'pscale = (noise2d($pos_x * 0.1, $pos_y * 0.1) + 1)');
+const copy1 = new nodes.CopyToPointsNode('copy1');
 
-// network.connections.push({ outNode: 'super1', inNode: 'transform1', inPort: 'shape' });
+network.nodes.push(lsys1);
+network.nodes.push(circle1);
+network.nodes.push(grid1);
+network.nodes.push(wrangle1);
+network.nodes.push(copy1);
+
+network.connections.push({ outNode: 'circle1', inNode: 'copy1', inPort: 'shape' });
+network.connections.push({ outNode: 'grid1', inNode: 'wrangle1', inPort: 'shape' });
+network.connections.push({ outNode: 'wrangle1', inNode: 'copy1', inPort: 'target' });
 // network.connections.push({ outNode: 'transform1', inNode: 'copy1', inPort: 'shape' });
 
-network.renderedNode = 'lsys1';
+network.renderedNode = 'copy1';
 
 // Check connections
 for (const conn of network.connections) {
@@ -371,7 +384,7 @@ let simplex = new SimplexNoise(102);
 function App() {
   const [activeNode, setActiveNode] = useState(network.nodes[0]);
   const [version, setVersion] = useState(0);
-  const [uiVisible, setUiVisible] = useState(false);
+  const [uiVisible, setUiVisible] = useState(true);
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
