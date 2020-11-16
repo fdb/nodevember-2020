@@ -1,0 +1,45 @@
+.app {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr;
+  background: #111;
+  grid-gap: 3px;
+}
+
+.app.ui-visible {
+  grid-template-columns: 1fr 400px;
+}
+
+.viewer {
+}
+
+.viewer canvas {
+  /* border: 1px solid green; */
+}
+
+.ui-hidden .sidebar {
+  display: none;
+}
+
+.sidebar {
+  display: grid;
+  grid-template-rows: 350px 1fr;
+  background: #111;
+  grid-gap: 4px;
+}
+
+.network {
+}
+
+.props {
+  overflow: hidden;
+  position: relative;
+  overflow-y: scroll;
+}
+.props > div:first-child {
+  position: sticky;
+  top: 0;
+  background: #1a202c;
+}
