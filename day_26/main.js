@@ -348,24 +348,40 @@ lsys1.x = 20;
 lsys1.y = 20;
 
 const circle1 = new nodes.CircleNode('circle1');
-circle1.setInput('radius', new Vec2(3, 3));
+circle1.x = 20;
+circle1.y = 100;
+
+circle1.setInput('radius', new Vec2(0.73, 0.71));
 const grid1 = new nodes.GridNode('grid1');
 const wrangle1 = new nodes.WrangleNode('wrangle1');
 wrangle1.setInput('expressions', 'pscale = (noise2d($pos_x * 0.1, $pos_y * 0.1) + 1)');
 const copy1 = new nodes.CopyToPointsNode('copy1');
+const trans1 = new nodes.TransformNode('trans1');
+trans1.x = 20;
+trans1.y = 150;
+const copy2 = new nodes.CopyAndTransformNode('copy2');
+copy2.setInput('copies', 150);
+copy2.setInput('translate', new Vec2(2, 0));
+copy2.setInput('rotate', 25);
 
-network.nodes.push(lsys1);
+copy2.setInput('scale', new Vec2(1.03, 1.03));
+copy2.x = 150;
+copy2.y = 150;
+
+// network.nodes.push(lsys1);
 network.nodes.push(circle1);
-network.nodes.push(grid1);
-network.nodes.push(wrangle1);
-network.nodes.push(copy1);
+// network.nodes.push(grid1);
+// network.nodes.push(wrangle1);
+// network.nodes.push(copy1);
+network.nodes.push(copy2);
 
-network.connections.push({ outNode: 'circle1', inNode: 'copy1', inPort: 'shape' });
-network.connections.push({ outNode: 'grid1', inNode: 'wrangle1', inPort: 'shape' });
-network.connections.push({ outNode: 'wrangle1', inNode: 'copy1', inPort: 'target' });
-// network.connections.push({ outNode: 'transform1', inNode: 'copy1', inPort: 'shape' });
+// network.connections.push({ outNode: 'circle1', inNode: 'copy1', inPort: 'shape' });
+// network.connections.push({ outNode: 'grid1', inNode: 'wrangle1', inPort: 'shape' });
+// network.connections.push({ outNode: 'wrangle1', inNode: 'copy1', inPort: 'target' });
+// network.connections.push({ outNode: 'circle1', inNode: 'trans1', inPort: 'shape' });
+network.connections.push({ outNode: 'circle1', inNode: 'copy2', inPort: 'shape' });
 
-network.renderedNode = 'copy1';
+network.renderedNode = 'copy2';
 
 // Check connections
 for (const conn of network.connections) {
@@ -385,7 +401,7 @@ function App() {
   const [activeNode, setActiveNode] = useState(network.nodes[0]);
   const [version, setVersion] = useState(0);
   const [uiVisible, setUiVisible] = useState(true);
-  const [isAnimating, setIsAnimating] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(true);
 
   useEffect(() => {
     setActiveNode(network.nodes.find((node) => node.name === network.renderedNode));
@@ -412,26 +428,26 @@ function App() {
   const animate = () => {
     const time = (Date.now() - startTime) / 750.0;
     // network.setInput('transform1', 'scale', new Vec2(1 + (time % 10) * 0.1, 1 + (time % 10) * 0.1));
-    const r = simplex.noise2D(2539, time * 0.05);
-    const tx = simplex.noise2D(7917, time * 0.1);
-    const ty = simplex.noise2D(2833, time * 0.1);
-    const cx = simplex.noise2D(3626, time * 0.1);
-    const cy = simplex.noise2D(4643, time * 0.1);
+    // const r = simplex.noise2D(2539, time * 0.05);
+    // const tx = simplex.noise2D(7917, time * 0.1);
+    // const ty = simplex.noise2D(2833, time * 0.1);
+    // const cx = simplex.noise2D(3626, time * 0.1);
+    // const cy = simplex.noise2D(4643, time * 0.1);
 
-    const m = simplex.noise2D(3163, time * 0.03);
-    const n1 = simplex.noise2D(4643, time * 0.03);
-    const n2 = simplex.noise2D(3001, time * 0.01);
-    const n3 = simplex.noise2D(3623, time * 0.05);
+    // const m = simplex.noise2D(3163, time * 0.03);
+    // const n1 = simplex.noise2D(4643, time * 0.03);
+    // const n2 = simplex.noise2D(3001, time * 0.01);
+    // const n3 = simplex.noise2D(3623, time * 0.05);
     // const strokeWidth = simplex.noise2D(3163, time * 0.04);
     // const copies = simplex.noise2D(3571, time * 0.04);
 
     // network.setInput('rect1', 'position', new Vec2(remap(cx, -1, 1, -10, 10), remap(cy, -1, 1, -10, 10)));
-    network.setInput('copy1', 'rotate', remap(r, -1, 1, -3, 3));
-    network.setInput('copy1', 'translate', new Vec2(remap(tx, -1, 1, -0.2, 0.2), remap(ty, -1, 1, -0.2, 0.2)));
-    network.setInput('super1', 'm', remap(m, -1, 1, 3, 10));
-    network.setInput('super1', 'n1', remap(n1, -1, 1, 0, 5));
-    network.setInput('super1', 'n2', remap(n2, -1, 1, 0, 5));
-    network.setInput('super1', 'n3', remap(n3, -1, 1, 0, 5));
+    network.setInput('copy2', 'rotate', 25 + time * 0.01);
+    // network.setInput('copy1', 'translate', new Vec2(remap(tx, -1, 1, -0.2, 0.2), remap(ty, -1, 1, -0.2, 0.2)));
+    // network.setInput('super1', 'm', remap(m, -1, 1, 3, 10));
+    // network.setInput('super1', 'n1', remap(n1, -1, 1, 0, 5));
+    // network.setInput('super1', 'n2', remap(n2, -1, 1, 0, 5));
+    // network.setInput('super1', 'n3', remap(n3, -1, 1, 0, 5));
     // network.setInput('super1', 'a', remap(a, -1, 1, 0, 1));
     // network.setInput('super1', 'b', remap(b, -1, 1, 0, 1));
     // network.setInput('super1', 'strokeWidth', remap(strokeWidth, -1, 1, 0.5, 3));

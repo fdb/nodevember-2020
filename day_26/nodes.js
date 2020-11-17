@@ -386,16 +386,27 @@ const RULE_RE = /^([a-zA-Z]+)\s*=\s*(.*)$/;
 export class LsystemNode extends Node {
   constructor(name) {
     super(name, TYPE_SHAPE);
-    this.addInput('predicate', TYPE_STRING, 'FFAB');
-    this.addInput('rule1', TYPE_STRING, 'A=[+FF][-FF]');
-    this.addInput('rule2', TYPE_STRING, 'A=[+FF][-FF]');
+    this.addInput('depth', TYPE_INT, 3);
+    this.addInput('length', TYPE_FLOAT, 10);
+    this.addInput('angle', TYPE_FLOAT, 18);
+    this.addInput('predicate', TYPE_STRING, 'F');
+    this.addInput('rule1', TYPE_STRING, 'F=FF[+FF][-FF]F[+FF]');
+    this.addInput('rule2', TYPE_STRING, 'B=[+FFA][-FFA]');
+    this.addInput('stroke', TYPE_COLOR, new Color(1, 1, 1));
+    this.addInput('strokeWidth', TYPE_FLOAT, 1);
   }
 
   run() {
+    const depth = Math.min(this.inputValue('depth'), 5);
+    const length = this.inputValue('length');
+    const angle = this.inputValue('angle');
     const predicate = this.inputValue('predicate');
-    const rules = {};
     const rule1 = this.inputValue('rule1');
     const rule2 = this.inputValue('rule2');
+    const stroke = this.inputValue('stroke');
+    const strokeWidth = this.inputValue('strokeWidth');
+
+    const rules = {};
     const m1 = RULE_RE.exec(rule1);
     const m2 = RULE_RE.exec(rule2);
     if (m1) {
@@ -406,17 +417,71 @@ export class LsystemNode extends Node {
       const [_, name, expr] = m2;
       rules[name] = expr;
     }
-    console.log(rules);
-    const expandedRules = this._expandRules(predicate, rules);
+    // console.log(rules);
+    const expandedRules = this._expandRules(predicate, rules, depth);
     console.log(expandedRules);
+
     const geo = new Geometry();
-    geo.addStyle(new Style(null, new Color(1, 1, 1, 1), 1));
+    geo.addStyle(new Style(null, stroke, strokeWidth));
+    const stack = [];
+    const t = new Transform();
+    t.rotate(-90);
     geo.moveTo(0, 0);
-    geo.lineTo(0, -100);
+    for (const c of expandedRules) {
+      switch (c) {
+        case 'F':
+          {
+            // geo.moveTo(x, y);
+            const [x, y] = t.transformXY(length, 0);
+            // const [x1, y1] = t.transformXY(length - 5, 0);
+            // geo.moveTo(x, y);
+            geo.lineTo(x, y);
+            t.translate(length, 0);
+          }
+          break;
+        case '+':
+          {
+            t.rotate(angle);
+          }
+          break;
+        case '-':
+          {
+            t.rotate(-angle);
+          }
+          break;
+        case '[':
+          {
+            stack.push(t.m.slice());
+          }
+          break;
+        case ']':
+          {
+            t.m = stack.pop();
+            const [x, y] = t.transformXY(0, 0);
+            geo.moveTo(x, y);
+          }
+          break;
+      }
+    }
+
+    // geo.lineTo(0, -100);
     this.setOutput(geo);
   }
 
-  _expandRules(predicate, rules, depth) {}
+  _expandRules(predicate, rules, depth) {
+    if (depth <= 1) return predicate;
+    let result = '';
+    for (const c of predicate) {
+      const rule = rules[c];
+      if (rule) {
+        result += rule;
+      } else {
+        result += c;
+      }
+    }
+    result = this._expandRules(result, rules, depth - 1);
+    return result;
+  }
 }
 
 export class ConnectNode extends Node {

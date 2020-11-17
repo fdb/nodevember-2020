@@ -55,7 +55,7 @@ export class Transform {
 
   transformXY(x, y) {
     const [m11, m12, m13, m21, m22, m23] = this.m;
-    [m11 * x + m12 * y + m13, m21 * x + m22 * y + m23];
+    return [m11 * x + m12 * y + m13, m21 * x + m22 * y + m23];
   }
 
   translate(tx, ty) {
@@ -63,9 +63,11 @@ export class Transform {
       ty = tx.y;
       tx = tx.x;
     }
-    const m = this.m;
-    m[2] += tx;
-    m[5] += ty;
+    const [m11, m12, m13, m21, m22, m23] = this.m;
+    this.m[2] = tx * m11 + ty * m12 + m13;
+    this.m[5] = tx * m21 + ty * m22 + m23;
+    // this.m[2] = m13 + tx;
+    // this.m[5] = m23 + ty;
     return this;
   }
 
@@ -76,11 +78,11 @@ export class Transform {
     }
     const m = this.m;
     m[0] *= sx;
-    m[1] *= sx;
-    m[2] *= sx;
-    m[3] *= sy;
+    m[1] *= sy;
+    //m[2] *= sx;
+    m[3] *= sx;
     m[4] *= sy;
-    m[5] *= sy;
+    // m[5] *= sy;
     return this;
   }
 
@@ -93,13 +95,21 @@ export class Transform {
     const m = this.m;
     const [m11, m12, m13, m21, m22, m23] = m;
 
-    m[0] = c * m11 + -s * m21;
-    m[1] = c * m12 + -s * m22;
-    m[2] = c * m13 + -s * m23;
+    m[0] = c * m11 + s * m12;
+    m[1] = -s * m11 + c * m12;
+    // m[2] = m13; // c * m13 + -s * m23;
 
-    m[3] = s * m11 + c * m21;
-    m[4] = s * m12 + c * m22;
-    m[5] = s * m13 + c * m23;
+    m[3] = c * m21 + s * m22;
+    m[4] = -s * m21 + c * m22;
+    // m[5] = m23; // s * m13 + c * m23;
+
+    // m[0] = c * m11 + -s * m21;
+    // m[1] = c * m12 + -s * m22;
+    // m[2] = c * m13 + -s * m23;
+
+    // m[3] = s * m11 + c * m21;
+    // m[4] = s * m12 + c * m22;
+    // m[5] = s * m13 + c * m23;
 
     return this;
   }
