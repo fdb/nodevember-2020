@@ -338,24 +338,56 @@ function PropsView({ activeNode, onSetInput }) {
 const network = new nodes.Network();
 
 const circle1 = new nodes.CircleNode('circle1');
+// circle1.setInput('radius', new Vec2(10, 10));
 circle1.setInput('fill', null);
-circle1.setInput('stroke', new Color(1, 0, 0));
+circle1.setInput('stroke', new Color(1, 1, 0));
 circle1.x = 20;
 circle1.y = 20;
+
+const circle2 = new nodes.CircleNode('circle2');
+circle2.setInput('radius', new Vec2(10, 10));
+circle2.setInput('fill', null);
+circle2.setInput('stroke', new Color(1, 1, 0));
+circle2.x = 150;
+circle2.y = 20;
+
+const grid1 = new nodes.GridNode('grid1');
+// grid1.setInput('fill', null);
+// grid1.setInput('stroke', new Color(1, 0, 0));
+grid1.setInput('rows', 5);
+grid1.setInput('columns', 5);
+grid1.x = 260;
+grid1.y = 20;
+
+const copy1 = new nodes.CopyToPointsNode('copy1');
+copy1.x = 150;
+copy1.y = 80;
+
 const dla1 = new nodes.DlaNode('dla1');
 dla1.setInput('threshold', 180);
 dla1.setInput('fade', 35);
-
+dla1.setInput('iterations', 300);
 dla1.x = 20;
-dla1.y = 80;
+dla1.y = 150;
+
+const dla2 = new nodes.DlaNode('dla2');
+dla2.setInput('threshold', 180);
+dla2.setInput('fade', 35);
+dla2.x = 150;
+dla2.y = 150;
 
 network.nodes.push(circle1);
+network.nodes.push(circle2);
+network.nodes.push(grid1);
+network.nodes.push(copy1);
 
 network.nodes.push(dla1);
+network.nodes.push(dla2);
 
 network.connections.push({ outNode: 'circle1', inNode: 'dla1', inPort: 'shape' });
-// network.connections.push({ outNode: 'grid1', inNode: 'trans1', inPort: 'shape' });
-// network.connections.push({ outNode: 'trans1', inNode: 'copy1', inPort: 'target' });
+network.connections.push({ outNode: 'grid1', inNode: 'copy1', inPort: 'target' });
+network.connections.push({ outNode: 'circle2', inNode: 'copy1', inPort: 'shape' });
+network.connections.push({ outNode: 'copy1', inNode: 'dla2', inPort: 'shape' });
 
 network.renderedNode = 'dla1';
 
@@ -416,8 +448,8 @@ function App() {
     // const strokeWidth = simplex.noise2D(3163, time * 0.04);
     // const copies = simplex.noise2D(3571, time * 0.04);
 
-    network.setInput('dla1', 'seed', Math.round(time * 3));
-    network.setInput('circle1', 'radius', new Vec2(remap(rx, -1, 1, 20, 250), remap(ry, -1, 1, 20, 250)));
+    // network.setInput('dla1', 'seed', Math.round(time * 3));
+    network.setInput('circle1', 'radius', new Vec2(remap(rx, -1, 1, 10, 250), remap(ry, -1, 1, 10, 250)));
     // network.setInput('trans1', 'rotate', remap(r, -1, 1, -2, 2));
     runNetwork();
     if (isAnimating) {

@@ -991,6 +991,7 @@ export class DlaNode extends Node {
     this.addInput('seed', TYPE_INT, 42);
     this.addInput('threshold', TYPE_INT, 200);
     this.addInput('fade', TYPE_INT, 10);
+    this.addInput('iterations', TYPE_INT, 100);
     this._width = 0;
     this._height = 0;
     this._seed = 0;
@@ -1039,6 +1040,7 @@ export class DlaNode extends Node {
     const seed = this.inputValue('seed');
     const threshold = clamp(this.inputValue('threshold'), 1, 254);
     const fade = clamp(this.inputValue('fade'), 0, 255);
+    const iterations = this.inputValue('iterations');
 
     if (width !== this._width || height !== this._height) {
       this._dlaCanvas.width = width;
@@ -1070,7 +1072,7 @@ export class DlaNode extends Node {
     // debugger;
     const cells = this._cells;
     let x, y;
-    for (let i = 0; i < 500; i++) {
+    for (let i = 0; i < iterations; i++) {
       let tries = 0;
       do {
         this._walker.move();
