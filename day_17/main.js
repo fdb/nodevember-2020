@@ -20,7 +20,7 @@ function Viewer({ network, version, uiVisible, bordered }) {
   useEffect(() => {
     const canvas = canvasRef.current; //document.getElementById('c');
     canvas.style.width = `${canvas.width}px`;
-    canvas.style.height = `${canvas.height}px`;
+    canvas.style.height = 'auto';
     canvas.width = canvas.width * window.devicePixelRatio;
     canvas.height = canvas.height * window.devicePixelRatio;
     const ctx = canvas.getContext('2d');
@@ -78,11 +78,11 @@ function Viewer({ network, version, uiVisible, bordered }) {
         Canvas</label
       >
     </div>`}
-    <div class="flex items-center justify-center w-full h-full">
+    <div class="flex items-center justify-center w-full h-full p-2">
       <canvas
         width="500"
         height="500"
-        class=${bordered ? 'border border-gray-800 shadow-lg' : ''}
+        class=${bordered ? 'max-w-full h-auto border border-gray-800 shadow-lg' : 'max-w-full h-auto'}
         ref=${canvasRef}
         style=${{ mixBlendMode: 'normal' }}
       ></canvas>
