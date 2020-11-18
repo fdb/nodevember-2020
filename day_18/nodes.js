@@ -11,6 +11,7 @@ import {
   ATTRIBUTE_TYPE_U8,
   ATTRIBUTE_TYPE_F32,
   PATH_MOVE_TO,
+  ATTRIBUTE_TYPE_I16,
 } from './graphics.js';
 import Lox from './lox.js';
 
@@ -1126,52 +1127,69 @@ export class DlaNode extends Node {
 
 export class ParticlesNode extends Node {
   constructor(name) {
-    super(name);
-    this.addInput('birthrate', TYPE_INT);
-    this.addInput('lifetime', TYPE_FLOAT);
-    this.addInput('lifetimeSpread', TYPE_FLOAT2);
-    this.addInput('velocity', TYPE_VEC2);
-    this.addInput('velocitySpread', TYPE_VEC2);
+    super(name, TYPE_SHAPE);
+    this.addInput('source', TYPE_SHAPE);
+    this.addInput('birthrate', TYPE_INT, 1);
+    this.addInput('lifetime', TYPE_INT, 100);
+    this.addInput('lifetimeSpread', TYPE_INT);
+    this.addInput('velocity', TYPE_VEC2, new Vec2(0, 0));
+    this.addInput('velocitySpread', TYPE_VEC2, new Vec2(2, 2));
     // this.addInput('seed', TYPE_INT);
     this._frame = 0;
     this._toBeBorn = 0;
     this.geo = new Geometry();
-    this.geo.addAttributeType('dead', ATTRIBUTE_TYPE_U8);
-    this.geo.addAttributeType('v[x]', ATTRIBUTE_TYPE_F32);
-    this.geo.addAttributeType('v[y]', ATTRIBUTE_TYPE_F32);
-    this.geo.addAttributeType('lifetime', ATTRIBUTE_TYPE_F32);
-    this._rng = new Math.seedrandom(0);
+    this.geo.commands.ensureCapacity(1000);
+    this.geo.commands.addAttributeType('v[x]', ATTRIBUTE_TYPE_F32);
+    this.geo.commands.addAttributeType('v[y]', ATTRIBUTE_TYPE_F32);
+    this.geo.commands.addAttributeType('age', ATTRIBUTE_TYPE_I16);
+    this.geo.commands.addAttributeType('lifetime', ATTRIBUTE_TYPE_I16);
+    this.geo.commands.addAttributeType('dead', ATTRIBUTE_TYPE_U8);
+    this._rng = new Math.seedrandom(12);
+    this._freeIndices = [];
+    for (let i = 0; i < this.geo.commands.size; i++) {
+      this._freeIndices.push(i);
+    }
   }
 
-  // rand(min, max) {
-  //   return min + this._rng.quick() * (max - min);
-  // }
-
   rand(center, offset) {
-    return center + this._rng.quick() * offset;
+    return center + (this._rng() - 0.5) * offset;
+  }
+
+  randInt(max) {
+    return Math.floor(this._rng() * max);
   }
 
   run() {
+    const source = this.inputValue('source');
     const birthrate = this.inputValue('birthrate');
     const lifetime = this.inputValue('lifetime');
     const lifetimeSpread = this.inputValue('lifetimeSpread');
     const velocity = this.inputValue('velocity');
     const velocitySpread = this.inputValue('velocitySpread');
-
+    const { geo } = this;
     this._frame += 1;
 
     // Birth new particles
-    this._toBeBorn += this._frame * birthrate;
-    while (this.toBeBorn > 1) {
-      geo.commands.append({
+    this._toBeBorn += birthrate;
+    while (this._toBeBorn >= 1) {
+      const randomPointIndex = this.randInt(source.commands.size);
+      const particle = {
         verb: PATH_MOVE_TO,
-        'p[x]': 0,
-        'p[y]': 0,
+        'p[x]': source.commands.get(randomPointIndex, 'p[x]'),
+        'p[y]': source.commands.get(randomPointIndex, 'p[y]'),
         'v[x]': this.rand(velocity.x, velocitySpread.x),
         'v[y]': this.rand(velocity.y, velocitySpread.y),
-        startTime: this._frame,
-        deathTime: this._frame + this.rand(lifetime, lifetimeSpread),
-      });
+        age: 0,
+        lifetime: Math.floor(this.rand(lifetime, lifetimeSpread)),
+        dead: 0,
+      };
+      if (this._freeIndices.length) {
+        const index = this._freeIndices[0];
+        geo.commands.set(index, particle);
+        this._freeIndices.shift();
+      } else {
+        geo.commands.append(particle);
+      }
       this._toBeBorn -= 1;
     }
 
@@ -1180,16 +1198,48 @@ export class ParticlesNode extends Node {
     const pys = geo.commands.getArray('p[y]');
     const vxs = geo.commands.getArray('v[x]');
     const vys = geo.commands.getArray('v[y]');
-    const deathTime = geo.commands.getArray('dead');
-
-    const dead = geo.commands.getArray('dead');
+    const ages = geo.commands.getArray('age');
+    const lifetimes = geo.commands.getArray('lifetime');
+    const deads = geo.commands.getArray('dead');
     for (let i = 0, l = geo.commands.size; i < l; i++) {
       pxs[i] += vxs[i];
-      pys[i] += vxy[i];
-
-      // p.progress = (now - p.startTime) / (p.deathTime - p.startTime);
+      pys[i] += vys[i];
+      ages[i]++;
+      if (ages[i] > lifetimes[i] && deads[i] === 0) {
+        deads[i] = 1;
+        this._freeIndices.push(i);
+      }
     }
-    // this.particles = this.particles.filter((p) => p.progress <= 1.0);
+
+    this.setOutput(geo);
+  }
+}
+
+export class TrailNode extends Node {
+  constructor(name) {
+    super(name, TYPE_SHAPE);
+    this.addInput('shape', TYPE_SHAPE);
+    this.addInput('length', TYPE_INT, 5);
+    // this.x_trail;
+  }
+
+  run() {
+    const shape = this.inputValue('shape');
+    const pxs = shape.commands.getArray('p[x]');
+    const pys = shape.commands.getArray('p[y]');
+
+    // if (this.x_trail.)
+
+    // if (this._shape) {}
+
+    const geo = new Geometry();
+
+    for (let i = 0, l = shape.commands.size; i < l; i++) {
+      const x = pxs[i];
+      const y = pys[i];
+      x_trail[i].push(x);
+      y_trail[i].push(x);
+    }
 
     this.setOutput(geo);
   }

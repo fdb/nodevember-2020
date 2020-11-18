@@ -1,6 +1,6 @@
-// Nodevember day 17 - Fungus
-// Play with Diffusion-limited Aggregation (DLA)
-// https://en.wikipedia.org/wiki/Diffusion-limited_aggregation#cite_note-TL-4
+// Nodevember day 18 - Growth
+// Use particles and trail their positions
+// An excuse to implement particles in terms of geo attributes.
 
 import { html, render, useEffect, useState, useRef } from '../third_party/preact-htm.min.js';
 import { Color, LinearGradient, Vec2, ATTRIBUTE_TYPE_U8, ATTRIBUTE_TYPE_I16, Transform, Geometry } from './graphics.js';
@@ -16,7 +16,7 @@ function Viewer({ network, version, uiVisible, bordered }) {
   const canvasRef = useRef();
   const contextRef = useRef();
   const [drawPoints, setDrawPoints] = useState(false);
-  const [clearCanvas, setClearCanvas] = useState(true);
+  const [clearCanvas, setClearCanvas] = useState(false);
   useEffect(() => {
     const canvas = canvasRef.current; //document.getElementById('c');
     canvas.style.width = `${canvas.width}px`;
@@ -34,6 +34,9 @@ function Viewer({ network, version, uiVisible, bordered }) {
     const ctx = contextRef.current;
     if (clearCanvas) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+    } else {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.01)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
     ctx.save();
     ctx.translate(canvas.width / 2 / window.devicePixelRatio, canvas.height / 2 / window.devicePixelRatio);
@@ -320,7 +323,7 @@ function PropsView({ activeNode, onSetInput }) {
     for (const inputName of activeNode.inputNames) {
       const port = activeNode.inputMap[inputName];
       rows.push(html`<div class="p-2 flex">
-        <div class="w-24 text-gray-500 text-sm p-1">${port.name}</div>
+        <div class="w-24 text-gray-500 text-xs p-1">${port.name}</div>
         ${port.type === TYPE_VEC2 &&
         html`<${Vec2Dragger} value=${port.value} onChange=${(value) => onSetInput(activeNode, inputName, value)} />`}
         ${port.type === TYPE_FLOAT &&
@@ -337,30 +340,34 @@ function PropsView({ activeNode, onSetInput }) {
 
 const network = new nodes.Network();
 
-const circle1 = new nodes.CircleNode('circle1');
-// circle1.setInput('radius', new Vec2(10, 10));
-circle1.setInput('fill', null);
-circle1.setInput('stroke', new Color(1, 1, 0));
-circle1.x = 20;
-circle1.y = 20;
-
 const grid1 = new nodes.GridNode('grid1');
-grid1.setInput('rows', 5);
-grid1.setInput('columns', 5);
+grid1.setInput('rows', 6);
+grid1.setInput('columns', 6);
 grid1.x = 150;
 grid1.y = 20;
 
-const mountain1 = new nodes.MountainNode('mountain1');
-mountain1.x = 150;
-mountain1.y = 70;
+const trans1 = new nodes.TransformNode('trans1');
+trans1.x = 150;
+trans1.y = 70;
 
-network.nodes.push(circle1);
+// const mountain1 = new nodes.MountainNode('mountain1');
+// mountain1.x = 150;
+// mountain1.y = 70;
+
+const particles1 = new nodes.ParticlesNode('particles1');
+particles1.setInput('birthrate', 50);
+particles1.setInput('velocitySpread', new Vec2(0.1, 0.2));
+particles1.x = 150;
+particles1.y = 120;
+
 network.nodes.push(grid1);
-network.nodes.push(mountain1);
+network.nodes.push(trans1);
+network.nodes.push(particles1);
 
-network.connections.push({ outNode: 'grid1', inNode: 'mountain1', inPort: 'shape' });
+network.connections.push({ outNode: 'grid1', inNode: 'trans1', inPort: 'shape' });
+network.connections.push({ outNode: 'trans1', inNode: 'particles1', inPort: 'source' });
 
-network.renderedNode = 'mountain1';
+network.renderedNode = 'particles1';
 
 // Check connections
 for (const conn of network.connections) {
@@ -379,8 +386,8 @@ let simplex = new SimplexNoise(100);
 function App() {
   const [activeNode, setActiveNode] = useState(network.nodes[0]);
   const [version, setVersion] = useState(0);
-  const [uiVisible, setUiVisible] = useState(true);
-  const [isAnimating, setIsAnimating] = useState(false);
+  const [uiVisible, setUiVisible] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(true);
 
   useEffect(() => {
     setActiveNode(network.nodes.find((node) => node.name === network.renderedNode));
@@ -409,7 +416,8 @@ function App() {
     const time = (Date.now() - startTime) / 750.0;
     const rx = simplex.noise2D(7917, time * 0.01);
     const ry = simplex.noise2D(2833, time * 0.01);
-    // const r = simplex.noise2D(3626, time * 0.05);
+    const r = simplex.noise2D(3626, time * 0.08);
+    const gridSize = simplex.noise2D(3626, time * 0.05);
     // const cy = simplex.noise2D(4643, time * 0.1);
 
     // const m = simplex.noise2D(3163, time * 0.03);
@@ -419,9 +427,11 @@ function App() {
     // const strokeWidth = simplex.noise2D(3163, time * 0.04);
     // const copies = simplex.noise2D(3571, time * 0.04);
 
-    // network.setInput('dla1', 'seed', Math.round(time * 3));
-    network.setInput('circle1', 'radius', new Vec2(remap(rx, -1, 1, 10, 250), remap(ry, -1, 1, 10, 250)));
-    // network.setInput('trans1', 'rotate', remap(r, -1, 1, -2, 2));
+    // network.setInput('trans1', 'seed', Math.round(time * 3));
+    const gridWidth = remap(gridSize, -1, 1, 100, 500);
+    network.setInput('grid1', 'width', gridWidth);
+    network.setInput('grid1', 'height', gridWidth);
+    network.setInput('trans1', 'rotate', remap(r, -1, 1, -90, 90));
     runNetwork();
     if (isAnimating) {
       window.requestAnimationFrame(animate);

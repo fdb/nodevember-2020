@@ -369,6 +369,8 @@ class AttributeTable {
   }
 }
 
+let simplex = new SimplexNoise(100);
+
 export class Geometry {
   constructor(initialCapacity = 32) {
     this.contours = new AttributeTable(8);
@@ -522,12 +524,17 @@ export class Geometry {
   }
 
   _drawPoints(ctx, commands) {
-    ctx.fillStyle = '#999';
+    ctx.fillStyle = `hsl(110, 80%, 50%)`;
     ctx.beginPath();
     const pointCount = commands.size;
     const xs = commands.table['p[x]'].data;
     const ys = commands.table['p[y]'].data;
+    let deads;
+    if (commands.hasAttribute('dead')) {
+      deads = commands.table['dead'].data;
+    }
     for (let i = 0; i < pointCount; i++) {
+      if (deads && deads[i]) continue;
       ctx.moveTo(xs[i], ys[i]);
       ctx.arc(xs[i], ys[i], 2, 0, Math.PI * 2);
     }
