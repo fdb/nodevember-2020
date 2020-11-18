@@ -15,6 +15,11 @@
 .viewer {
 }
 
+.viewer canvas {
+  max-width: 100%;
+  height: auto !important;
+}
+
 .ui-hidden .sidebar {
   display: none;
 }

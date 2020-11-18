@@ -12,7 +12,10 @@
   grid-template-columns: 1fr 300px;
 }
 
-.viewer {
+.viewer canvas {
+  max-width: 100%;
+  height: auto !important;
+
 }
 
 .ui-hidden .sidebar {

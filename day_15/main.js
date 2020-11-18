@@ -80,7 +80,7 @@ function Viewer({ network, version, uiVisible, bordered }) {
         Canvas</label
       >
     </div>`}
-    <div class="flex items-center justify-center w-full h-full">
+    <div class="flex items-center justify-center w-full h-full p-2">
       <canvas
         width="500"
         height="500"

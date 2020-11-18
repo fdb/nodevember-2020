@@ -62,7 +62,7 @@ function Viewer({ network, version, uiVisible }) {
         Points</label
       >
     </div>`}
-    <canvas width="500" height="500" ref=${canvasRef} style=${{ mixBlendMode: 'lighten' }}></canvas>
+    <canvas width="500" height="500" ref=${canvasRef} className="p-2" style=${{ mixBlendMode: 'lighten' }}></canvas>
   </div>`;
 }
 

@@ -54,7 +54,7 @@ function Viewer({ network, version, uiVisible }) {
         Points</label
       >
     </div>`}
-    <canvas width="600" height="600" ref=${canvasRef}></canvas>
+    <canvas width="600" height="600" ref=${canvasRef} className="p-2"></canvas>
   </div>`;
 }
 

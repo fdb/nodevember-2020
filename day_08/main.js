@@ -59,7 +59,7 @@ function Viewer({ network, version, uiVisible }) {
         Points</label
       >
     </div>`}
-    <canvas width="500" height="500" ref=${canvasRef} style=${{ mixBlendMode: 'lighten' }}></canvas>
+    <canvas width="500" height="500" ref=${canvasRef} className="p-2" style=${{ mixBlendMode: 'lighten' }}></canvas>
   </div>`;
 }
 
@@ -259,7 +259,7 @@ for (const conn of network.connections) {
 function App() {
   const [activeNode, setActiveNode] = useState(network.nodes[0]);
   const [version, setVersion] = useState(0);
-  const [uiVisible, setUiVisible] = useState(true);
+  const [uiVisible, setUiVisible] = useState(false);
 
   useEffect(() => {
     setActiveNode(network.nodes.find((node) => node.name === network.renderedNode));

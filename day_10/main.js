@@ -67,7 +67,7 @@ function Viewer({ network, version, uiVisible }) {
         Canvas</label
       >
     </div>`}
-    <canvas width="500" height="500" ref=${canvasRef} style=${{ mixBlendMode: 'difference' }}></canvas>
+    <canvas width="500" height="500" ref=${canvasRef} className="p-2" style=${{ mixBlendMode: 'difference' }}></canvas>
   </div>`;
 }
 
