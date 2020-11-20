@@ -496,7 +496,7 @@ export class Geometry {
         if (verb === PATH_MOVE_TO) {
           const x = commands.get(j, 'p[x]');
           const y = commands.get(j, 'p[y]');
-          // ctx.beginPath(); // perf hack
+          ctx.beginPath(); // perf hack
           ctx.moveTo(x, y);
         } else if (verb === PATH_LINE_TO) {
           const x = commands.get(j, 'p[x]');
@@ -524,7 +524,7 @@ export class Geometry {
   }
 
   _drawPoints(ctx, commands) {
-    ctx.fillStyle = `hsl(110, 80%, 50%)`;
+    ctx.fillStyle = `#ddd`;
     ctx.beginPath();
     const pointCount = commands.size;
     const xs = commands.table['p[x]'].data;

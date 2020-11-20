@@ -346,35 +346,91 @@ function PropsView({ activeNode, onSetInput }) {
 const network = new nodes.Network();
 const lox = new Lox();
 
-const rect1 = new nodes.RectNode('rect1');
-rect1.setExpression(lox, 'position', 'vec2(sin($time * 2) * 100, 0)');
-rect1.x = 20;
-rect1.y = 20;
-const circle1 = new nodes.CircleNode('circle1');
-circle1.x = 150;
-circle1.y = 20;
+// const rect1 = new nodes.RectNode('rect1');
+// rect1.setExpression(lox, 'position', 'vec2(sin($time * 2) * 100, 0)');
+// rect1.x = 20;
+// rect1.y = 20;
+// const circle1 = new nodes.CircleNode('circle1');
+// circle1.x = 150;
+// circle1.y = 20;
 
-const switch1 = new nodes.SwitchNode('switch1');
-// switch1.setExpression(lox, 'input', '1 + $time * 2');
-switch1.x = 20;
-switch1.y = 70;
+// const switch1 = new nodes.SwitchNode('switch1');
+// // switch1.setExpression(lox, 'input', '1 + $time * 2');
+// switch1.x = 20;
+// switch1.y = 70;
 
-const trans1 = new nodes.TransformNode('trans1');
-//trans1.setInput('rotate', 45);
-trans1.setExpression(lox, 'rotate', '$time * 10');
-trans1.x = 20;
-trans1.y = 120;
+// const trans1 = new nodes.TransformNode('trans1');
+// //trans1.setInput('rotate', 45);
+// trans1.setExpression(lox, 'rotate', '$time * 10');
+// trans1.x = 20;
+// trans1.y = 120;
 
-network.nodes.push(rect1);
-network.nodes.push(circle1);
-network.nodes.push(switch1);
-network.nodes.push(trans1);
+// network.nodes.push(rect1);
+// network.nodes.push(circle1);
+// network.nodes.push(switch1);
+// network.nodes.push(trans1);
 
-network.connections.push({ outNode: 'rect1', inNode: 'switch1', inPort: 'shape1' });
-network.connections.push({ outNode: 'circle1', inNode: 'switch1', inPort: 'shape2' });
-network.connections.push({ outNode: 'switch1', inNode: 'trans1', inPort: 'shape' });
+// network.connections.push({ outNode: 'rect1', inNode: 'switch1', inPort: 'shape1' });
+// network.connections.push({ outNode: 'circle1', inNode: 'switch1', inPort: 'shape2' });
+// network.connections.push({ outNode: 'switch1', inNode: 'trans1', inPort: 'shape' });
 
-network.renderedNode = 'trans1';
+// network.renderedNode = 'trans1';
+
+// const circle1 = new nodes.CircleNode('circle1');
+// circle1.setInput('radius', new Vec2(5, 5));
+// circle1.x = 20;
+// circle1.y = 20;
+
+// const lsys1 = new nodes.LsystemNode('lsys1');
+// lsys1.x = 20;
+// lsys1.y = 20;
+
+const super1 = new nodes.SuperformulaNode('super1');
+super1.setInput('radius', 16);
+super1.setInput('m', 2.25);
+super1.setInput('n1', 0.4);
+super1.setInput('n3', 1.0);
+super1.setInput('a', 0.15);
+super1.setInput('segments', 100);
+super1.setInput('fill', new Color(1, 1, 0, 0.8));
+super1.setInput('stroke', null);
+super1.x = 20;
+super1.y = 20;
+
+const grid1 = new nodes.GridNode('grid1');
+grid1.setInput('columns', 5);
+grid1.setInput('rows', 20);
+grid1.setInput('width', 400);
+grid1.setInput('height', 350);
+
+grid1.x = 150;
+grid1.y = 20;
+
+const wrangle1 = new nodes.WrangleNode('wrangle1');
+wrangle1.setInput('expressions', 'pscale = ($py + 200) * 0.01');
+wrangle1.x = 150;
+wrangle1.y = 70;
+
+const mountain1 = new nodes.MountainNode('mountain1');
+mountain1.setExpression(lox, 'offset', 'vec2($time * 0.2, 0)');
+mountain1.x = 150;
+mountain1.y = 120;
+
+const copy1 = new nodes.CopyToPointsNode('copy1');
+copy1.x = 20;
+copy1.y = 170;
+
+network.nodes.push(super1);
+network.nodes.push(grid1);
+network.nodes.push(wrangle1);
+network.nodes.push(mountain1);
+network.nodes.push(copy1);
+network.connections.push({ outNode: 'grid1', inNode: 'wrangle1', inPort: 'shape' });
+network.connections.push({ outNode: 'wrangle1', inNode: 'mountain1', inPort: 'shape' });
+network.connections.push({ outNode: 'super1', inNode: 'copy1', inPort: 'shape' });
+network.connections.push({ outNode: 'mountain1', inNode: 'copy1', inPort: 'target' });
+
+network.renderedNode = 'copy1';
 
 // Check connections
 for (const conn of network.connections) {
@@ -388,12 +444,12 @@ for (const conn of network.connections) {
 }
 
 // const simplex = new SimplexNoise(101);
-let simplex = new SimplexNoise(100);
+let simplex = new SimplexNoise(120);
 
 function App() {
   const [activeNode, setActiveNode] = useState(network.nodes[0]);
   const [version, setVersion] = useState(0);
-  const [uiVisible, setUiVisible] = useState(true);
+  const [uiVisible, setUiVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(true);
 
   useEffect(() => {
@@ -421,15 +477,15 @@ function App() {
   };
 
   const animate = () => {
-    const time = (Date.now() - startTime) / 750.0;
-    const rx = simplex.noise2D(7917, time * 0.01);
-    const ry = simplex.noise2D(2833, time * 0.01);
-    const r = simplex.noise2D(3626, time * 0.08);
-    const gridSize = simplex.noise2D(3626, time * 0.05);
+    const time = (Date.now() - startTime) / 1000.0;
+    const ax = simplex.noise2D(7917, time * 0.01);
+    const ay = simplex.noise2D(2833, time * 0.01);
+    // const r = simplex.noise2D(3626, time * 0.08);
+    // const gridSize = simplex.noise2D(3626, time * 0.05);
     // const cy = simplex.noise2D(4643, time * 0.1);
 
-    // const m = simplex.noise2D(3163, time * 0.03);
-    // const n1 = simplex.noise2D(4643, time * 0.03);
+    const m = simplex.noise2D(3163, time * 0.03);
+    const n1 = simplex.noise2D(4643, time * 0.03);
     // const n2 = simplex.noise2D(3001, time * 0.01);
     // const n3 = simplex.noise2D(3623, time * 0.05);
     // const strokeWidth = simplex.noise2D(3163, time * 0.04);
@@ -437,7 +493,10 @@ function App() {
 
     // network.setInput('trans1', 'seed', Math.round(time * 3));
     // const gridWidth = remap(gridSize, -1, 1, 100, 500);
-    // network.setInput('grid1', 'width', gridWidth);
+    network.setInput('super1', 'm', remap(m, -1, 1, 0.2, 6));
+    network.setInput('super1', 'n1', remap(n1, -1, 1, -0.2, 2));
+
+    network.setInput('mountain1', 'amplitude', new Vec2(remap(ax, -1, 1, -20, 20), remap(ay, -1, 1, -20, 20)));
     // network.setInput('grid1', 'height', gridWidth);
     // network.setInput('trans1', 'rotate', remap(r, -1, 1, -90, 90));
     runNetwork();

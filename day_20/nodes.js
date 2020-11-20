@@ -96,6 +96,7 @@ export class Node {
   }
 
   setExpression(lox, name, expression) {
+    console.assert(lox instanceof Lox, `First argument is not a Lox instance.`);
     this.lox = lox;
     if (expression) {
       const compiled = this.lox.parse(expression);
@@ -771,8 +772,8 @@ export class WrangleNode extends Node {
     const ys = newShape.commands.getArray('p[y]');
     for (let i = 0; i < pointCount; i++) {
       interp.scope['$pt'] = i;
-      interp.scope['$pos_x'] = xs[i];
-      interp.scope['$pos_y'] = ys[i];
+      interp.scope['$px'] = xs[i];
+      interp.scope['$py'] = ys[i];
       const attrs = {};
       for (const [attr, expr] of this.compiledExpressions) {
         const result = interp.evaluate(expr);
