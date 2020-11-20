@@ -1,3 +1,5 @@
+import { Vec2 } from './graphics.js';
+
 export default class Lox {
   constructor() {
     this.hadError = false;
@@ -8,6 +10,7 @@ export default class Lox {
     this.interpreter.scope['cos'] = Math.cos;
     this.interpreter.scope['min'] = Math.min;
     this.interpreter.scope['max'] = Math.max;
+    this.interpreter.scope['vec2'] = (x, y) => new Vec2(x, y);
     this.interpreter.scope['noise2d'] = (x, y) => simplex.noise2D(x, y);
   }
 
@@ -30,6 +33,10 @@ export default class Lox {
       return null;
     }
     return this._parse(tokens);
+  }
+
+  evaluate(expression) {
+    return this.interpreter.evaluate(expression);
   }
 
   error(line, message) {

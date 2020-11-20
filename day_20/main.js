@@ -4,6 +4,7 @@
 
 import { html, render, useEffect, useState, useRef } from '../third_party/preact-htm.min.js';
 import { Color, LinearGradient, Vec2, ATTRIBUTE_TYPE_U8, ATTRIBUTE_TYPE_I16, Transform, Geometry } from './graphics.js';
+import Lox from './lox.js';
 import * as nodes from './nodes.js';
 import { TYPE_FLOAT, TYPE_INT, TYPE_SHAPE, TYPE_IMAGE, TYPE_STRING, TYPE_VEC2 } from './nodes.js';
 
@@ -324,14 +325,18 @@ function PropsView({ activeNode, onSetInput }) {
       const port = activeNode.inputMap[inputName];
       rows.push(html`<div class="p-2 flex">
         <div class="w-24 text-gray-500 text-xs p-1">${port.name}</div>
-        ${port.type === TYPE_VEC2 &&
-        html`<${Vec2Dragger} value=${port.value} onChange=${(value) => onSetInput(activeNode, inputName, value)} />`}
-        ${port.type === TYPE_FLOAT &&
-        html`<${FloatDragger} value=${port.value} onChange=${(value) => onSetInput(activeNode, inputName, value)} />`}
-        ${port.type === TYPE_INT &&
-        html`<${IntDragger} value=${port.value} onChange=${(value) => onSetInput(activeNode, inputName, value)} />`}
-        ${port.type === TYPE_SHAPE && html`<p class="p-1 text-sm italic text-gray-600">[Shape]</p>`}
-        ${port.type === TYPE_STRING && html`<p class="p-1 text-sm italic text-gray-600">${port.value}</p>`}
+        ${activeNode.hasExpression(inputName) &&
+        html`<div className="bg-green-900 p-1 w-40 font-mono text-sm">${activeNode.getExpression(inputName)}</div>`}
+        ${!activeNode.hasExpression(inputName) && [
+          port.type === TYPE_VEC2 &&
+            html`<${Vec2Dragger} value=${port.value} onChange=${(value) => onSetInput(activeNode, inputName, value)} />`,
+          port.type === TYPE_FLOAT &&
+            html`<${FloatDragger} value=${port.value} onChange=${(value) => onSetInput(activeNode, inputName, value)} />`,
+          port.type === TYPE_INT &&
+            html`<${IntDragger} value=${port.value} onChange=${(value) => onSetInput(activeNode, inputName, value)} />`,
+          port.type === TYPE_SHAPE && html`<p class="p-1 text-sm italic text-gray-600">[Shape]</p>`,
+          port.type === TYPE_STRING && html`<p class="p-1 text-sm italic text-gray-600">${port.value}</p>`,
+        ]}
       </div>`);
     }
   }
@@ -339,8 +344,10 @@ function PropsView({ activeNode, onSetInput }) {
 }
 
 const network = new nodes.Network();
+const lox = new Lox();
 
 const rect1 = new nodes.RectNode('rect1');
+rect1.setExpression(lox, 'position', 'vec2(sin($time * 2) * 100, 0)');
 rect1.x = 20;
 rect1.y = 20;
 const circle1 = new nodes.CircleNode('circle1');
@@ -348,17 +355,26 @@ circle1.x = 150;
 circle1.y = 20;
 
 const switch1 = new nodes.SwitchNode('switch1');
-switch1.x = 150;
+// switch1.setExpression(lox, 'input', '1 + $time * 2');
+switch1.x = 20;
 switch1.y = 70;
+
+const trans1 = new nodes.TransformNode('trans1');
+//trans1.setInput('rotate', 45);
+trans1.setExpression(lox, 'rotate', '$time * 10');
+trans1.x = 20;
+trans1.y = 120;
 
 network.nodes.push(rect1);
 network.nodes.push(circle1);
 network.nodes.push(switch1);
+network.nodes.push(trans1);
 
 network.connections.push({ outNode: 'rect1', inNode: 'switch1', inPort: 'shape1' });
 network.connections.push({ outNode: 'circle1', inNode: 'switch1', inPort: 'shape2' });
+network.connections.push({ outNode: 'switch1', inNode: 'trans1', inPort: 'shape' });
 
-network.renderedNode = 'switch1';
+network.renderedNode = 'trans1';
 
 // Check connections
 for (const conn of network.connections) {
@@ -378,7 +394,7 @@ function App() {
   const [activeNode, setActiveNode] = useState(network.nodes[0]);
   const [version, setVersion] = useState(0);
   const [uiVisible, setUiVisible] = useState(true);
-  const [isAnimating, setIsAnimating] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(true);
 
   useEffect(() => {
     setActiveNode(network.nodes.find((node) => node.name === network.renderedNode));
@@ -398,8 +414,9 @@ function App() {
   }, []);
 
   const runNetwork = () => {
-    const time = (Date.now() - startTime) / 750.0;
-    network.run({ $time: time });
+    const time = (Date.now() - startTime) / 1000.0;
+    lox.interpreter.scope['$time'] = time;
+    network.run({ $time: time }, lox);
     setVersion((version) => version + 1);
   };
 

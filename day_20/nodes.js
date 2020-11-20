@@ -63,9 +63,12 @@ export class Node {
     this.inputNames = [];
     this.outputNames = [];
     this.inputMap = {};
+    this.expressionMap = {};
     this.output = new Port('out', outputType);
     this.dirty = true;
     this.runManual = runManual;
+    this.lox = null;
+    this._isTimeDependent = false;
   }
 
   addInput(name, type, value) {
@@ -75,7 +78,12 @@ export class Node {
   }
 
   inputValue(name) {
-    return this.inputMap[name].value;
+    const expr = this.expressionMap[name];
+    if (expr) {
+      return this.lox.evaluate(expr.compiled);
+    } else {
+      return this.inputMap[name].value;
+    }
   }
 
   setInput(name, value) {
@@ -87,6 +95,27 @@ export class Node {
     }
   }
 
+  setExpression(lox, name, expression) {
+    this.lox = lox;
+    if (expression) {
+      const compiled = this.lox.parse(expression);
+      this.expressionMap[name] = { expression, compiled };
+      this._isTimeDependent = true;
+    } else {
+      delete this.expressionMap[name];
+      this._isTimeDependent = false;
+    }
+    this.dirty = true;
+  }
+
+  hasExpression(name) {
+    return name in this.expressionMap;
+  }
+
+  getExpression(name) {
+    return this.expressionMap[name].expression;
+  }
+
   outputValue() {
     return this.output.value;
   }
@@ -95,17 +124,22 @@ export class Node {
     this.output.value = value;
   }
 
-  run(scope) {
+  _preRun(scope, lox) {
+    this.lox = lox;
+  }
+
+  run(scope, lox) {
     console.error('Please override the run method in your custom node.');
   }
 
   get isTimeDependent() {
-    return false;
+    return this._isTimeDependent;
   }
 
-  runLazy(scope) {
+  runLazy(scope, lox) {
     if (!this.dirty && !this.isTimeDependent) return;
-    this.run(scope);
+    this._preRun(scope, lox);
+    this.run(scope, lox);
     this.dirty = false;
   }
 }
@@ -118,16 +152,16 @@ export class Network {
     this.scope = {};
   }
 
-  run(scope) {
+  run(scope, lox) {
     this.scope = scope;
     const node = this.nodes.find((node) => node.name === this.renderedNode);
     console.assert(node, `Network.run(): could not find rendered node ${this.renderedNode}.`);
-    this.runNode(node);
+    this.runNode(node, lox);
   }
 
-  runNode(node) {
+  runNode(node, lox) {
     if (node.runManual) {
-      return node._runManual(this);
+      return node._runManual(this, this.scope, lox);
     }
     // Check if inputs are connected, and run them first.
     for (const inputName of node.inputNames) {
@@ -136,12 +170,12 @@ export class Network {
         const outNode = this.nodes.find((node) => node.name === conn.outNode);
         console.assert(node, `Could not find output node ${conn.outNode}.`);
         if (outNode.dirty || this.isNodeTimeDependent(outNode)) {
-          this.runNode(outNode);
+          this.runNode(outNode, lox);
         }
         node.setInput(inputName, outNode.outputValue());
       }
     }
-    node.runLazy(this.scope);
+    node.runLazy(this.scope, lox);
   }
 
   findNode(nodeName, error = true) {
@@ -192,8 +226,9 @@ export class SwitchNode extends Node {
     this.addInput('input', TYPE_INT, 1);
   }
 
-  _runManual(network) {
-    let input = this.inputValue('input');
+  _runManual(network, scope, lox) {
+    this._preRun(this.scope, lox);
+    let input = Math.floor(this.inputValue('input'));
     input -= 1;
     input = input % 2;
     input += 1;
@@ -203,7 +238,7 @@ export class SwitchNode extends Node {
       const outNode = network.nodes.find((node) => node.name === conn.outNode);
       console.assert(outNode, `Could not find output node ${conn.outNode}.`);
       if (outNode.dirty || network.isNodeTimeDependent(outNode)) {
-        network.runNode(outNode);
+        network.runNode(outNode, lox);
       }
       this.setOutput(outNode.outputValue());
     } else {
