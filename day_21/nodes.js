@@ -1,27 +1,32 @@
 import {
   Color,
   Vec2,
+  Vec3,
   CIRCLE_EPSILON,
   toRadians,
   lerp,
   Image,
   AffineTransfom,
-  Geometry,
+  Shape,
   Style,
+  Geo,
   ATTRIBUTE_TYPE_U8,
   ATTRIBUTE_TYPE_F32,
   PATH_MOVE_TO,
   ATTRIBUTE_TYPE_I16,
+  Matrix4,
 } from './graphics.js';
 import Lox from './lox.js';
 
 const TWO_PI = Math.PI * 2;
 
 export const TYPE_VEC2 = 'vec2';
+export const TYPE_VEC3 = 'vec3';
 export const TYPE_FLOAT = 'float';
 export const TYPE_INT = 'int';
 export const TYPE_COLOR = 'color';
 export const TYPE_SHAPE = 'shape';
+export const TYPE_GEO = 'geo';
 export const TYPE_IMAGE = 'image';
 export const TYPE_STRING = 'string';
 
@@ -47,10 +52,12 @@ export class Port {
         return 0.0;
       case TYPE_VEC2:
         return new Vec2();
+      case TYPE_VEC3:
+        return new Vec3();
       case TYPE_COLOR:
         return new Color();
       case TYPE_SHAPE:
-        return new Geometry();
+        return new Shape();
     }
   }
 }
@@ -243,7 +250,7 @@ export class SwitchNode extends Node {
       }
       this.setOutput(outNode.outputValue());
     } else {
-      this.setOutput(new Geometry());
+      this.setOutput(new Shape());
     }
   }
 }
@@ -261,7 +268,7 @@ export class GridNode extends Node {
   }
 
   run() {
-    const geo = new Geometry();
+    const shape = new Shape();
     const position = this.inputValue('position');
     const width = this.inputValue('width');
     const height = this.inputValue('height');
@@ -290,7 +297,7 @@ export class RectNode extends Node {
   }
 
   run() {
-    const geo = new Geometry();
+    const shape = new Shape();
     const position = this.inputValue('position');
     const size = this.inputValue('size');
     const fill = this.inputValue('fill');
@@ -327,7 +334,7 @@ export class CircleNode extends Node {
   }
 
   run() {
-    const geo = new Geometry();
+    const shape = new Shape();
     const position = this.inputValue('position');
     const radius = this.inputValue('radius');
     const fill = this.inputValue('fill');
@@ -341,14 +348,14 @@ export class CircleNode extends Node {
     const p3 = new Vec2(position.x, position.y + radius.y);
     const p4 = new Vec2(position.x - radius.x, position.y);
 
-    geo.addStyle(new Style(fill, stroke, strokeWidth));
-    geo.moveTo(p1.x, p1.y);
-    geo.curveTo(p1.x + xEpsilon, p1.y, p2.x, p2.y - yEpsilon, p2.x, p2.y);
-    geo.curveTo(p2.x, p2.y + yEpsilon, p3.x + xEpsilon, p3.y, p3.x, p3.y);
-    geo.curveTo(p3.x - xEpsilon, p3.y, p4.x, p4.y + yEpsilon, p4.x, p4.y);
-    geo.curveTo(p4.x, p4.y - yEpsilon, p1.x - xEpsilon, p1.y, p1.x, p1.y);
-    geo.close();
-    this.setOutput(geo);
+    shape.addStyle(new Style(fill, stroke, strokeWidth));
+    shape.moveTo(p1.x, p1.y);
+    shape.curveTo(p1.x + xEpsilon, p1.y, p2.x, p2.y - yEpsilon, p2.x, p2.y);
+    shape.curveTo(p2.x, p2.y + yEpsilon, p3.x + xEpsilon, p3.y, p3.x, p3.y);
+    shape.curveTo(p3.x - xEpsilon, p3.y, p4.x, p4.y + yEpsilon, p4.x, p4.y);
+    shape.curveTo(p4.x, p4.y - yEpsilon, p1.x - xEpsilon, p1.y, p1.x, p1.y);
+    shape.close();
+    this.setOutput(shape);
   }
 }
 
@@ -369,18 +376,18 @@ export class LineNode extends Node {
     const stroke = this.inputValue('stroke');
     const strokeWidth = this.inputValue('strokeWidth');
 
-    const geo = new Geometry();
-    geo.addStyle(new Style(null, stroke, strokeWidth));
+    const shape = new Shape();
+    shape.addStyle(new Style(null, stroke, strokeWidth));
 
-    geo.moveTo(point1.x, point1.y);
+    shape.moveTo(point1.x, point1.y);
     for (let i = 1; i < segments - 1; i++) {
       const t = (1 / segments) * i;
       let x = lerp(point1.x, point2.x, t);
       let y = lerp(point1.y, point2.y, t);
-      geo.lineTo(x, y);
+      shape.lineTo(x, y);
     }
-    geo.lineTo(point2.x, point2.y);
-    this.setOutput(geo);
+    shape.lineTo(point2.x, point2.y);
+    this.setOutput(shape);
   }
 }
 
@@ -402,8 +409,8 @@ export class PolygonNode extends Node {
     const fill = this.inputValue('fill');
     const stroke = this.inputValue('stroke');
     const strokeWidth = this.inputValue('strokeWidth');
-    const geo = new Geometry();
-    geo.addStyle(new Style(fill, stroke, strokeWidth));
+    const shape = new Shape();
+    shape.addStyle(new Style(fill, stroke, strokeWidth));
     sides = Math.max(sides, 3);
     const theta = TWO_PI / sides;
     let first = true;
@@ -411,15 +418,15 @@ export class PolygonNode extends Node {
       const x = position.x + Math.sin(Math.PI + i * theta) * radius;
       const y = position.y + Math.cos(Math.PI + i * theta) * radius;
       if (first) {
-        geo.moveTo(x, y);
+        shape.moveTo(x, y);
         first = false;
       } else {
-        geo.lineTo(x, y);
+        shape.lineTo(x, y);
       }
-      // c = geo.coordinates(x, y, (a * i) + da, r);
+      // c = shape.coordinates(x, y, (a * i) + da, r);
     }
-    geo.close();
-    this.setOutput(geo);
+    shape.close();
+    this.setOutput(shape);
   }
 }
 
@@ -446,8 +453,8 @@ export class SpiralNode extends Node {
     const stroke = this.inputValue('stroke');
     const strokeWidth = this.inputValue('strokeWidth');
 
-    const geo = new Geometry();
-    geo.addStyle(new Style(null, stroke, strokeWidth));
+    const shape = new Shape();
+    shape.addStyle(new Style(null, stroke, strokeWidth));
     for (let i = 0; i < segments; i++) {
       const t = i / segments;
       const angle = lerp(startAngle, endAngle, t);
@@ -456,12 +463,12 @@ export class SpiralNode extends Node {
       const x = Math.cos(toRadians(angle)) * radius;
       const y = Math.sin(toRadians(angle)) * radius;
       if (i === 0) {
-        geo.moveTo(position.x + x, position.y + y);
+        shape.moveTo(position.x + x, position.y + y);
       } else {
-        geo.lineTo(position.x + x, position.y + y);
+        shape.lineTo(position.x + x, position.y + y);
       }
     }
-    this.setOutput(geo);
+    this.setOutput(shape);
   }
 }
 
@@ -505,21 +512,21 @@ export class LsystemNode extends Node {
     const expandedRules = this._expandRules(predicate, rules, depth);
     // console.log(expandedRules);
 
-    const geo = new Geometry();
-    geo.addStyle(new Style(null, stroke, strokeWidth));
+    const shape = new Shape();
+    shape.addStyle(new Style(null, stroke, strokeWidth));
     const stack = [];
     const t = new AffineTransfom();
     t.rotate(-90);
-    geo.moveTo(0, 0);
+    shape.moveTo(0, 0);
     for (const c of expandedRules) {
       switch (c) {
         case 'F':
           {
-            // geo.moveTo(x, y);
+            // shape.moveTo(x, y);
             const [x, y] = t.transformXY(length, 0);
             // const [x1, y1] = t.transformXY(length - 5, 0);
-            // geo.moveTo(x, y);
-            geo.lineTo(x, y);
+            // shape.moveTo(x, y);
+            shape.lineTo(x, y);
             t.translate(length, 0);
           }
           break;
@@ -542,14 +549,14 @@ export class LsystemNode extends Node {
           {
             t.m = stack.pop();
             const [x, y] = t.transformXY(0, 0);
-            geo.moveTo(x, y);
+            shape.moveTo(x, y);
           }
           break;
       }
     }
 
-    // geo.lineTo(0, -100);
-    this.setOutput(geo);
+    // shape.lineTo(0, -100);
+    this.setOutput(shape);
   }
 
   _expandRules(predicate, rules, depth) {
@@ -603,7 +610,7 @@ export class CopyToPointsNode extends Node {
     const shape = this.inputValue('shape');
     const target = this.inputValue('target');
     const newPointCount = shape.commands.size * target.commands.size;
-    const newShape = new Geometry(newPointCount);
+    const newShape = new Shape(newPointCount);
     newShape.styles = shape.styles.map((style) => style.clone());
     newShape.currentStyleIndex = shape.currentStyleIndex;
 
@@ -670,17 +677,17 @@ export class CopyAndAffineTransfomNode extends Node {
     const translate = this.inputValue('translate');
     const rotate = this.inputValue('rotate');
     const scale = this.inputValue('scale');
-    const geo = new Geometry();
+    const outShape = new Shape();
     const transform = new AffineTransfom();
     for (let i = 0; i < copies; i++) {
       transform.scale(scale.x, scale.y);
       transform.rotate(rotate);
       transform.translate(translate.x, translate.y);
       const newShape = shape.clone();
-      transform.transformGeometry(newShape);
-      geo.extend(newShape);
+      transform.transformShape(newShape);
+      outShape.extend(newShape);
     }
-    this.setOutput(geo);
+    this.setOutput(outShape);
   }
 }
 
@@ -704,18 +711,18 @@ export class ScatterPointsNode extends Node {
     const seed = this.inputValue('seed');
 
     Math.seedrandom(seed);
-    const geo = new Geometry();
+    const shape = new Shape();
     let first = true;
     for (let i = 0; i < amount; i++) {
       const x = position.x + (Math.random() - 0.5) * width;
       const y = position.y + (Math.random() - 0.5) * height;
       if (first) {
-        geo.moveTo(x, y);
+        shape.moveTo(x, y);
       } else {
-        geo.lineTo(x, y);
+        shape.lineTo(x, y);
       }
     }
-    this.setOutput(geo);
+    this.setOutput(shape);
   }
 }
 
@@ -815,8 +822,8 @@ export class SuperformulaNode extends Node {
     const stroke = this.inputValue('stroke');
     const strokeWidth = this.inputValue('strokeWidth');
 
-    const geo = new Geometry();
-    geo.addStyle(new Style(fill, stroke, strokeWidth));
+    const shape = new Shape();
+    shape.addStyle(new Style(fill, stroke, strokeWidth));
 
     let n = this.inputValue('segments');
     let i = -1;
@@ -845,14 +852,14 @@ export class SuperformulaNode extends Node {
     for (let i = 0, l = points.length; i < l; i++) {
       const [x, y] = points[i];
       if (i === 0) {
-        geo.moveTo(position.x + x, position.y + y);
+        shape.moveTo(position.x + x, position.y + y);
       } else {
-        geo.lineTo(position.x + x, position.y + y);
+        shape.lineTo(position.x + x, position.y + y);
       }
-      geo.close();
+      shape.close();
     }
 
-    this.setOutput(geo);
+    this.setOutput(shape);
   }
 }
 
@@ -899,7 +906,7 @@ export class AffineTransfomNode extends Node {
     transform.translate(translate.x, translate.y);
     transform.shear(shear.x, shear.y);
     const newShape = shape.clone();
-    transform.transformGeometry(newShape);
+    transform.transformShape(newShape);
     this.setOutput(newShape);
   }
 }
@@ -947,13 +954,13 @@ export class MergeNode extends Node {
     const shape3 = this.inputValue('shape3');
     const shape4 = this.inputValue('shape4');
     const shape5 = this.inputValue('shape5');
-    const geo = new Geometry();
-    if (shape1) geo.extend(shape1);
-    if (shape2) geo.extend(shape2);
-    if (shape3) geo.extend(shape3);
-    if (shape4) geo.extend(shape4);
-    if (shape5) geo.extend(shape5);
-    this.setOutput(geo);
+    const outShape = new Shape();
+    if (shape1) outShape.extend(shape1);
+    if (shape2) outShape.extend(shape2);
+    if (shape3) outShape.extend(shape3);
+    if (shape4) outShape.extend(shape4);
+    if (shape5) outShape.extend(shape5);
+    this.setOutput(outShape);
   }
 }
 
@@ -1209,16 +1216,16 @@ export class ParticlesNode extends Node {
     // this.addInput('seed', TYPE_INT);
     this._frame = 0;
     this._toBeBorn = 0;
-    this.geo = new Geometry();
-    this.geo.commands.ensureCapacity(1000);
-    this.geo.commands.addAttributeType('v[x]', ATTRIBUTE_TYPE_F32);
-    this.geo.commands.addAttributeType('v[y]', ATTRIBUTE_TYPE_F32);
-    this.geo.commands.addAttributeType('age', ATTRIBUTE_TYPE_I16);
-    this.geo.commands.addAttributeType('lifetime', ATTRIBUTE_TYPE_I16);
-    this.geo.commands.addAttributeType('dead', ATTRIBUTE_TYPE_U8);
+    this.shape = new Shape();
+    this.shape.commands.ensureCapacity(1000);
+    this.shape.commands.addAttributeType('v[x]', ATTRIBUTE_TYPE_F32);
+    this.shape.commands.addAttributeType('v[y]', ATTRIBUTE_TYPE_F32);
+    this.shape.commands.addAttributeType('age', ATTRIBUTE_TYPE_I16);
+    this.shape.commands.addAttributeType('lifetime', ATTRIBUTE_TYPE_I16);
+    this.shape.commands.addAttributeType('dead', ATTRIBUTE_TYPE_U8);
     this._rng = new Math.seedrandom(12);
     this._freeIndices = [];
-    for (let i = 0; i < this.geo.commands.size; i++) {
+    for (let i = 0; i < this.shape.commands.size; i++) {
       this._freeIndices.push(i);
     }
   }
@@ -1238,7 +1245,7 @@ export class ParticlesNode extends Node {
     const lifetimeSpread = this.inputValue('lifetimeSpread');
     const velocity = this.inputValue('velocity');
     const velocitySpread = this.inputValue('velocitySpread');
-    const { geo } = this;
+    const { shape } = this;
     this._frame += 1;
 
     // Birth new particles
@@ -1257,23 +1264,23 @@ export class ParticlesNode extends Node {
       };
       if (this._freeIndices.length) {
         const index = this._freeIndices[0];
-        geo.commands.set(index, particle);
+        shape.commands.set(index, particle);
         this._freeIndices.shift();
       } else {
-        geo.commands.append(particle);
+        shape.commands.append(particle);
       }
       this._toBeBorn -= 1;
     }
 
     // Update existing particles
-    const pxs = geo.commands.getArray('p[x]');
-    const pys = geo.commands.getArray('p[y]');
-    const vxs = geo.commands.getArray('v[x]');
-    const vys = geo.commands.getArray('v[y]');
-    const ages = geo.commands.getArray('age');
-    const lifetimes = geo.commands.getArray('lifetime');
-    const deads = geo.commands.getArray('dead');
-    for (let i = 0, l = geo.commands.size; i < l; i++) {
+    const pxs = shape.commands.getArray('p[x]');
+    const pys = shape.commands.getArray('p[y]');
+    const vxs = shape.commands.getArray('v[x]');
+    const vys = shape.commands.getArray('v[y]');
+    const ages = shape.commands.getArray('age');
+    const lifetimes = shape.commands.getArray('lifetime');
+    const deads = shape.commands.getArray('dead');
+    for (let i = 0, l = shape.commands.size; i < l; i++) {
       pxs[i] += vxs[i];
       pys[i] += vys[i];
       ages[i]++;
@@ -1283,7 +1290,7 @@ export class ParticlesNode extends Node {
       }
     }
 
-    this.setOutput(geo);
+    this.setOutput(shape);
   }
 }
 
@@ -1304,15 +1311,224 @@ export class TrailNode extends Node {
 
     // if (this._shape) {}
 
-    const geo = new Geometry();
+    const outShape = new Shape();
 
-    for (let i = 0, l = shape.commands.size; i < l; i++) {
+    for (let i = 0, l = outShape.commands.size; i < l; i++) {
       const x = pxs[i];
       const y = pys[i];
       x_trail[i].push(x);
       y_trail[i].push(x);
     }
 
+    this.setOutput(outShape);
+  }
+}
+
+export class TriangleNode extends Node {
+  constructor(name) {
+    super(name, TYPE_GEO);
+  }
+
+  run() {
+    const geo = new Geo();
+    geo.points.append({ 'p[x]': 0.0, 'p[y]': -0.5, 'p[z]': 0.0 });
+    geo.points.append({ 'p[x]': -0.8, 'p[y]': 0.5, 'p[z]': 0.0 });
+    geo.points.append({ 'p[x]': 0.8, 'p[y]': 0.5, 'p[z]': 0.0 });
+    console.log(geo);
     this.setOutput(geo);
+  }
+}
+
+// Based on https://github.com/mrdoob/three.js/blob/dev/src/geometries/BoxBufferGeometry.js
+export class BoxNode extends Node {
+  constructor(name) {
+    super(name, TYPE_GEO);
+    this.addInput('size', TYPE_VEC3, new Vec3(1, 1, 1));
+    this.addInput('center', TYPE_VEC3);
+    // this.addInput('segments', TYPE_VEC3);
+    // this.addInput('width', TYPE_FLOAT, 1);
+    // this.addInput('height', TYPE_FLOAT, 1);
+    // this.addInput('deth', TYPE_FLOAT, 1);
+  }
+
+  run() {
+    const geo = new Geo();
+    const size = this.inputValue('size');
+    const center = this.inputValue('center');
+
+    const x1 = center.x - size.x / 2;
+    const x2 = center.x + size.x / 2;
+    const y1 = center.y - size.y / 2;
+    const y2 = center.y + size.y / 2;
+    const z1 = center.z - size.z / 2;
+    const z2 = center.z + size.z / 2;
+
+    // Points: back plane
+    geo.points.append({ 'p[x]': x1, 'p[y]': y1, 'p[z]': z1 });
+    geo.points.append({ 'p[x]': x2, 'p[y]': y1, 'p[z]': z1 });
+    geo.points.append({ 'p[x]': x1, 'p[y]': y2, 'p[z]': z1 });
+    geo.points.append({ 'p[x]': x2, 'p[y]': y2, 'p[z]': z1 });
+
+    // Points: front plane
+    geo.points.append({ 'p[x]': x1, 'p[y]': y1, 'p[z]': z2 });
+    geo.points.append({ 'p[x]': x2, 'p[y]': y1, 'p[z]': z2 });
+    geo.points.append({ 'p[x]': x1, 'p[y]': y2, 'p[z]': z2 });
+    geo.points.append({ 'p[x]': x2, 'p[y]': y2, 'p[z]': z2 });
+
+    // Faces: back plane
+    // geo.faces.
+
+    // geo.points.append({ 'p[x]': 0.0, 'p[y]': -0.5, 'p[z]': 0.0 });
+    // geo.points.append({ 'p[x]': -0.8, 'p[y]': 0.5, 'p[z]': 0.0 });
+    // geo.points.append({ 'p[x]': 0.8, 'p[y]': 0.5, 'p[z]': 0.0 });
+    // console.log(geo);
+    this.setOutput(geo);
+  }
+}
+
+export class GeoGridNode extends Node {
+  constructor(name) {
+    super(name, TYPE_GEO);
+    this.addInput('center', TYPE_VEC3, new Vec3(0, 0, 0));
+    this.addInput('size', TYPE_VEC3, new Vec3(1, 1, 1));
+    this.addInput('rows', TYPE_INT, 10);
+    this.addInput('columns', TYPE_INT, 10);
+    this.addInput('elements', TYPE_INT, 10);
+  }
+
+  run() {
+    const center = this.inputValue('center');
+    const size = this.inputValue('size');
+    const rows = this.inputValue('rows');
+    const columns = this.inputValue('columns');
+    const elements = this.inputValue('elements');
+    const geo = new Geo();
+
+    for (let i = 0; i < rows; i++) {
+      for (let j = 0; j < columns; j++) {
+        for (let k = 0; k < elements; k++) {
+          let x = (size.x * j) / (columns - 1) - size.x / 2;
+          let y = (size.y * i) / (rows - 1) - size.y / 2;
+          let z = (size.z * k) / (elements - 1) - size.z / 2;
+          geo.points.append({ 'p[x]': center.x + x, 'p[y]': center.y + y, 'p[z]': center.z + z });
+
+          // geo.commands.append({ verb: PATH_MOVE_TO, 'p[x]': position.x + x - width / 2, 'p[y]': position.y + y - height / 2 });
+        }
+      }
+    }
+    this.setOutput(geo);
+  }
+}
+
+// Based on https://github.com/mrdoob/three.js/blob/dev/src/geometries/BoxBufferGeometry.js
+export class GeoTransformNode extends Node {
+  constructor(name) {
+    super(name, TYPE_GEO);
+    this.addInput('geo', TYPE_GEO);
+    this.addInput('translate', TYPE_VEC3, new Vec3(0, 0, 0));
+    this.addInput('rotate', TYPE_VEC3, new Vec3(0, 0, 0));
+    this.addInput('scale', TYPE_VEC3, new Vec3(1, 1, 1));
+    this._matrix = new Matrix4();
+    this._translateMatrix = new Matrix4();
+    this._rotateXMatrix = new Matrix4();
+    this._rotateYMatrix = new Matrix4();
+    this._rotateZMatrix = new Matrix4();
+    this._scaleMatrix = new Matrix4();
+  }
+
+  run() {
+    const geo = this.inputValue('geo');
+    const translate = this.inputValue('translate');
+    const rotate = this.inputValue('rotate');
+    const scale = this.inputValue('scale');
+
+    const matrix = this._matrix;
+    matrix.identity();
+    this._translateMatrix.makeTranslation(translate.x, translate.y, translate.z);
+    // console.log(this._translateMatrix);
+    this._rotateXMatrix.makeRotationX(toRadians(rotate.x));
+    this._rotateYMatrix.makeRotationY(toRadians(rotate.y));
+    this._rotateZMatrix.makeRotationZ(toRadians(rotate.z));
+    this._scaleMatrix.identity().scale(scale);
+
+    matrix.multiply(this._translateMatrix);
+    matrix.multiply(this._scaleMatrix);
+    matrix.multiply(this._rotateXMatrix);
+    matrix.multiply(this._rotateYMatrix);
+    matrix.multiply(this._rotateZMatrix);
+    const m = matrix.m;
+
+    const newGeo = geo.clone();
+    const xs = newGeo.points.getArray('p[x]');
+    const ys = newGeo.points.getArray('p[y]');
+    const zs = newGeo.points.getArray('p[z]');
+
+    for (let i = 0, l = newGeo.points.size; i < l; i++) {
+      const x = xs[i];
+      const y = ys[i];
+      const z = zs[i];
+      const w = 1 / (m[12] * x + m[13] * y + m[11] * z + m[15]);
+      xs[i] = (m[0] * x + m[1] * y + m[2] * z + m[3]) * w;
+      ys[i] = (m[4] * x + m[5] * y + m[6] * z + m[7]) * w;
+      zs[i] = (m[8] * x + m[9] * y + m[10] * z + m[11]) * w;
+    }
+
+    this.setOutput(newGeo);
+  }
+}
+
+export class GeoMergeNode extends Node {
+  constructor(name) {
+    super(name, TYPE_GEO);
+    this.addInput('geo', TYPE_GEO);
+    this.addInput('translate', TYPE_VEC3, new Vec3(0, 0, 0));
+    this.addInput('rotate', TYPE_VEC3, new Vec3(0, 0, 0));
+    this.addInput('scale', TYPE_VEC3, new Vec3(1, 1, 1));
+    this._matrix = new Matrix4();
+    this._translateMatrix = new Matrix4();
+    this._rotateXMatrix = new Matrix4();
+    this._rotateYMatrix = new Matrix4();
+    this._rotateZMatrix = new Matrix4();
+    this._scaleMatrix = new Matrix4();
+  }
+
+  run() {
+    const geo = this.inputValue('geo');
+    const translate = this.inputValue('translate');
+    const rotate = this.inputValue('rotate');
+    const scale = this.inputValue('scale');
+
+    const matrix = this._matrix;
+    matrix.identity();
+    this._translateMatrix.makeTranslation(translate.x, translate.y, translate.z);
+    console.log(this._translateMatrix);
+    this._rotateXMatrix.makeRotationX(toRadians(rotate.x));
+    this._rotateYMatrix.makeRotationY(toRadians(rotate.y));
+    this._rotateZMatrix.makeRotationZ(toRadians(rotate.z));
+    this._scaleMatrix.identity().scale(scale);
+
+    matrix.multiply(this._translateMatrix);
+    matrix.multiply(this._scaleMatrix);
+    matrix.multiply(this._rotateXMatrix);
+    matrix.multiply(this._rotateYMatrix);
+    matrix.multiply(this._rotateZMatrix);
+    const m = matrix.m;
+
+    const newGeo = geo.clone();
+    const xs = newGeo.points.getArray('p[x]');
+    const ys = newGeo.points.getArray('p[y]');
+    const zs = newGeo.points.getArray('p[z]');
+
+    for (let i = 0, l = newGeo.points.size; i < l; i++) {
+      const x = xs[i];
+      const y = ys[i];
+      const z = zs[i];
+      const w = 1 / (m[12] * x + m[13] * y + m[11] * z + m[15]);
+      xs[i] = (m[0] * x + m[1] * y + m[2] * z + m[3]) * w;
+      ys[i] = (m[4] * x + m[5] * y + m[6] * z + m[7]) * w;
+      zs[i] = (m[8] * x + m[9] * y + m[10] * z + m[11]) * w;
+    }
+
+    this.setOutput(newGeo);
   }
 }

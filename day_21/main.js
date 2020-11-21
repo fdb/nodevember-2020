@@ -1,12 +1,12 @@
-// Nodevember day 18 - Growth
-// Use particles and trail their positions
-// An excuse to implement particles in terms of geo attributes.
+// Nodevember day 21 - Architecture
+// I want to make the jump to 3D, rendering stuff in WebGL.
+// This might mean potentially leaving the 2D engine behind.
 
 import { html, render, useEffect, useState, useRef } from '../third_party/preact-htm.min.js';
-import { Color, LinearGradient, Vec2, ATTRIBUTE_TYPE_U8, ATTRIBUTE_TYPE_I16, AffineTransfom, Geometry } from './graphics.js';
+import { Color, LinearGradient, Vec2, Vec3, ATTRIBUTE_TYPE_U8, ATTRIBUTE_TYPE_I16, AffineTransfom, Shape } from './graphics.js';
 import Lox from './lox.js';
 import * as nodes from './nodes.js';
-import { TYPE_FLOAT, TYPE_INT, TYPE_SHAPE, TYPE_IMAGE, TYPE_STRING, TYPE_VEC2 } from './nodes.js';
+import { TYPE_FLOAT, TYPE_INT, TYPE_SHAPE, TYPE_GEO, TYPE_IMAGE, TYPE_STRING, TYPE_VEC2, TYPE_VEC3 } from './nodes.js';
 
 function remap(v, inMin, inMax, outMin, outMax) {
   v = (v - inMin) / (inMax - inMin);
@@ -15,59 +15,73 @@ function remap(v, inMin, inMax, outMin, outMax) {
 
 function Viewer({ network, version, uiVisible, bordered }) {
   const canvasRef = useRef();
-  const contextRef = useRef();
+  const glRef = useRef();
+  const programRef = useRef();
   const [drawPoints, setDrawPoints] = useState(false);
   const [clearCanvas, setClearCanvas] = useState(true);
+
   useEffect(() => {
     const canvas = canvasRef.current; //document.getElementById('c');
     canvas.style.width = `${canvas.width}px`;
     canvas.style.height = `${canvas.height}px`;
     canvas.width = canvas.width * window.devicePixelRatio;
     canvas.height = canvas.height * window.devicePixelRatio;
-    const ctx = canvas.getContext('2d');
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    const gl = canvas.getContext('webgl');
+
+    // programRef.current = createProgram(gl, VERTEX_SOURCE, FRAGMENT_SOURCE);
+
+    // ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     // canvasRef.current = canvas;
-    contextRef.current = ctx;
+    glRef.current = gl;
   }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const ctx = contextRef.current;
-    if (clearCanvas) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    } else {
-      // ctx.fillStyle = 'rgba(0, 0, 0, 0.01)';
-      // ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-    ctx.save();
-    ctx.translate(canvas.width / 2 / window.devicePixelRatio, canvas.height / 2 / window.devicePixelRatio);
+    const gl = glRef.current;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    // if (clearCanvas) {
+    //   ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // } else {
+    //   // ctx.fillStyle = 'rgba(0, 0, 0, 0.01)';
+    //   // ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // }
+    // ctx.save();
+    // ctx.translate(canvas.width / 2 / window.devicePixelRatio, canvas.height / 2 / window.devicePixelRatio);
 
     const node = network.nodes.find((node) => node.name === network.renderedNode);
-    if (node.output.type === TYPE_SHAPE) {
-      const outputShape = node.outputValue();
-      outputShape.draw(ctx);
-
-      if (drawPoints) {
-        ctx.fillStyle = '#4299e1';
-        ctx.beginPath();
-        const pointCount = outputShape.commands.size;
-        const xs = outputShape.commands.table['p[x]'].data;
-        const ys = outputShape.commands.table['p[y]'].data;
-        for (let i = 0; i < pointCount; i++) {
-          ctx.moveTo(xs[i], ys[i]);
-          ctx.arc(xs[i], ys[i], 2, 0, Math.PI * 2);
-        }
-        ctx.fill();
-      }
-    } else if (node.output.type === TYPE_IMAGE) {
-      const outputImage = node.outputValue();
-      if (outputImage) {
-        ctx.save();
-        ctx.drawImage(outputImage.element, -outputImage.width / 2, -outputImage.height / 2);
-        ctx.restore();
+    if (node.output.type === TYPE_GEO) {
+      const outputGeo = node.outputValue();
+      // console.log(node, outputGeo);
+      if (outputGeo) {
+        outputGeo.draw(gl);
       }
     }
-    ctx.restore();
+
+    // if (node.output.type === TYPE_SHAPE) {
+    //   const outputShape = node.outputValue();
+    //   outputShape.draw(ctx);
+
+    //   if (drawPoints) {
+    //     ctx.fillStyle = '#4299e1';
+    //     ctx.beginPath();
+    //     const pointCount = outputShape.commands.size;
+    //     const xs = outputShape.commands.table['p[x]'].data;
+    //     const ys = outputShape.commands.table['p[y]'].data;
+    //     for (let i = 0; i < pointCount; i++) {
+    //       ctx.moveTo(xs[i], ys[i]);
+    //       ctx.arc(xs[i], ys[i], 2, 0, Math.PI * 2);
+    //     }
+    //     ctx.fill();
+    //   }
+    // } else if (node.output.type === TYPE_IMAGE) {
+    //   const outputImage = node.outputValue();
+    //   if (outputImage) {
+    //     ctx.save();
+    //     ctx.drawImage(outputImage.element, -outputImage.width / 2, -outputImage.height / 2);
+    //     ctx.restore();
+    //   }
+    // }
+    // ctx.restore();
   }, [network, version, drawPoints]);
 
   return html`<div class="viewer bg-gray-900 flex flex-col h-full ">
@@ -103,7 +117,7 @@ function Spreadsheet({ network, version }) {
   if (node.output.type !== TYPE_SHAPE) {
     return html`<div>No spreadsheet for output type ${node.output.type}</div>`;
   }
-  const geo = node.outputValue();
+  const shape = node.outputValue();
 
   let table;
   if (mode === SPREADSHEET_MODE_CONTOURS) {
@@ -315,6 +329,14 @@ function Vec2Dragger({ value, onChange }) {
   </div>`;
 }
 
+function Vec3Dragger({ value, onChange }) {
+  return html`<div class="flex">
+    <${FloatDragger} value=${value.x} onChange=${(x) => onChange(new Vec3(x, value.y, value.z))} />
+    <${FloatDragger} value=${value.y} onChange=${(y) => onChange(new Vec3(value.x, y, value.z))} />
+    <${FloatDragger} value=${value.z} onChange=${(z) => onChange(new Vec3(value.x, value.y, z))} />
+  </div>`;
+}
+
 function PropsView({ activeNode, onSetInput }) {
   const rows = [];
   if (!activeNode) {
@@ -330,6 +352,8 @@ function PropsView({ activeNode, onSetInput }) {
         ${!activeNode.hasExpression(inputName) && [
           port.type === TYPE_VEC2 &&
             html`<${Vec2Dragger} value=${port.value} onChange=${(value) => onSetInput(activeNode, inputName, value)} />`,
+          port.type === TYPE_VEC3 &&
+            html`<${Vec3Dragger} value=${port.value} onChange=${(value) => onSetInput(activeNode, inputName, value)} />`,
           port.type === TYPE_FLOAT &&
             html`<${FloatDragger} value=${port.value} onChange=${(value) => onSetInput(activeNode, inputName, value)} />`,
           port.type === TYPE_INT &&
@@ -346,56 +370,33 @@ function PropsView({ activeNode, onSetInput }) {
 const network = new nodes.Network();
 const lox = new Lox();
 
-const circle1 = new nodes.CircleNode('circle1');
-circle1.x = 20;
-circle1.y = 20;
+const triangle1 = new nodes.TriangleNode('triangle1');
+triangle1.x = 20;
+triangle1.y = 20;
 
-// const super1 = new nodes.SuperformulaNode('super1');
-// super1.setInput('radius', 16);
-// super1.setInput('m', 2.25);
-// super1.setInput('n1', 0.4);
-// super1.setInput('n3', 1.0);
-// super1.setInput('a', 0.15);
-// super1.setInput('segments', 100);
-// super1.setInput('fill', new Color(1, 1, 0, 0.8));
-// super1.setInput('stroke', null);
-// super1.x = 20;
-// super1.y = 20;
+const box1 = new nodes.BoxNode('box1');
+box1.x = 150;
+box1.y = 20;
 
-// const grid1 = new nodes.GridNode('grid1');
-// grid1.setInput('columns', 5);
-// grid1.setInput('rows', 20);
-// grid1.setInput('width', 400);
-// grid1.setInput('height', 350);
+const grid1 = new nodes.GeoGridNode('grid1');
+grid1.setInput('rows', 20);
+grid1.setInput('columns', 20);
+grid1.setInput('elements', 16);
+grid1.x = 20;
+grid1.y = 20;
 
-// grid1.x = 150;
-// grid1.y = 20;
+const trans1 = new nodes.GeoTransformNode('trans1');
+trans1.setInput('rotate', new Vec3(15, 25, 0));
+trans1.x = 20;
+trans1.y = 70;
 
-// const wrangle1 = new nodes.WrangleNode('wrangle1');
-// wrangle1.setInput('expressions', 'pscale = ($py + 200) * 0.01');
-// wrangle1.x = 150;
-// wrangle1.y = 70;
+// network.nodes.push(triangle1);
+// network.nodes.push(box1);
+network.nodes.push(grid1);
+network.nodes.push(trans1);
+network.connections.push({ outNode: 'grid1', inNode: 'trans1', inPort: 'geo' });
 
-// const mountain1 = new nodes.MountainNode('mountain1');
-// mountain1.setExpression(lox, 'offset', 'vec2($time * 0.2, 0)');
-// mountain1.x = 150;
-// mountain1.y = 120;
-
-// const copy1 = new nodes.CopyToPointsNode('copy1');
-// copy1.x = 20;
-// copy1.y = 170;
-
-network.nodes.push(circle1);
-// network.nodes.push(grid1);
-// network.nodes.push(wrangle1);
-// network.nodes.push(mountain1);
-// network.nodes.push(copy1);
-// network.connections.push({ outNode: 'grid1', inNode: 'wrangle1', inPort: 'shape' });
-// network.connections.push({ outNode: 'wrangle1', inNode: 'mountain1', inPort: 'shape' });
-// network.connections.push({ outNode: 'super1', inNode: 'copy1', inPort: 'shape' });
-// network.connections.push({ outNode: 'mountain1', inNode: 'copy1', inPort: 'target' });
-
-network.renderedNode = 'circle1';
+network.renderedNode = 'trans1';
 
 // Check connections
 for (const conn of network.connections) {
@@ -409,13 +410,13 @@ for (const conn of network.connections) {
 }
 
 // const simplex = new SimplexNoise(101);
-let simplex = new SimplexNoise(120);
+let simplex = new SimplexNoise(101);
 
 function App() {
   const [activeNode, setActiveNode] = useState(network.nodes[0]);
   const [version, setVersion] = useState(0);
   const [uiVisible, setUiVisible] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(true);
 
   useEffect(() => {
     setActiveNode(network.nodes.find((node) => node.name === network.renderedNode));
@@ -443,14 +444,17 @@ function App() {
 
   const animate = () => {
     const time = (Date.now() - startTime) / 1000.0;
-    const ax = simplex.noise2D(7917, time * 0.01);
-    const ay = simplex.noise2D(2833, time * 0.01);
+    const sx = simplex.noise2D(7917, time * 0.01);
+    const sy = simplex.noise2D(3626, time * 0.01);
+    const sz = simplex.noise2D(4643, time * 0.01);
+    const rx = simplex.noise2D(3163, time * 0.02);
+    const ry = simplex.noise2D(3001, time * 0.02);
+    const rz = simplex.noise2D(3571, time * 0.02);
     // const r = simplex.noise2D(3626, time * 0.08);
     // const gridSize = simplex.noise2D(3626, time * 0.05);
     // const cy = simplex.noise2D(4643, time * 0.1);
-
-    const m = simplex.noise2D(3163, time * 0.03);
-    const n1 = simplex.noise2D(4643, time * 0.03);
+    // const m = simplex.noise2D(3163, time * 0.03);
+    // const n1 = simplex.noise2D(4643, time * 0.03);
     // const n2 = simplex.noise2D(3001, time * 0.01);
     // const n3 = simplex.noise2D(3623, time * 0.05);
     // const strokeWidth = simplex.noise2D(3163, time * 0.04);
@@ -458,10 +462,15 @@ function App() {
 
     // network.setInput('trans1', 'seed', Math.round(time * 3));
     // const gridWidth = remap(gridSize, -1, 1, 100, 500);
-    network.setInput('super1', 'm', remap(m, -1, 1, 0.2, 6));
-    network.setInput('super1', 'n1', remap(n1, -1, 1, -0.2, 2));
+    const gridSize = new Vec3(remap(sx, -1, 1, 0.5, 2.0), remap(sy, -1, 1, 0.5, 2.0), remap(sz, -1, 1, 0.5, 2.0));
+    network.setInput('grid1', 'size', gridSize);
 
-    network.setInput('mountain1', 'amplitude', new Vec2(remap(ax, -1, 1, -20, 20), remap(ay, -1, 1, -20, 20)));
+    const transRot = new Vec3(remap(rx, -1, 1, -90, 90), remap(ry, -1, 1, -90, 90), remap(rz, -1, 1, -90, 90));
+    network.setInput('trans1', 'rotate', transRot);
+
+    // network.setInput('super1', 'n1', remap(n1, -1, 1, -0.2, 2));
+
+    // network.setInput('mountain1', 'amplitude', new Vec2(remap(ax, -1, 1, -20, 20), remap(ay, -1, 1, -20, 20)));
     // network.setInput('grid1', 'height', gridWidth);
     // network.setInput('trans1', 'rotate', remap(r, -1, 1, -90, 90));
     runNetwork();

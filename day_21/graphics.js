@@ -96,112 +96,7 @@ export class AffineTransfom {
     return new Vec2(m11 * x + m12 * y + m13, m21 * x + m22 * y + m23);
   }
 
-  transformGeometry(geo) {
-    const [m11, m12, m13, m21, m22, m23] = this.m;
-    const xs = geo.commands.getArray('p[x]');
-    const ys = geo.commands.getArray('p[y]');
-    for (let i = 0, l = geo.commands.size; i < l; i++) {
-      const x = xs[i];
-      const y = ys[i];
-      xs[i] = m11 * x + m12 * y + m13;
-      ys[i] = m21 * x + m22 * y + m23;
-    }
-  }
-
-  transformXY(x, y) {
-    const [m11, m12, m13, m21, m22, m23] = this.m;
-    return [m11 * x + m12 * y + m13, m21 * x + m22 * y + m23];
-  }
-
-  translate(tx, ty) {
-    if (tx instanceof Vec2) {
-      ty = tx.y;
-      tx = tx.x;
-    }
-    const [m11, m12, m13, m21, m22, m23] = this.m;
-    this.m[2] = tx * m11 + ty * m12 + m13;
-    this.m[5] = tx * m21 + ty * m22 + m23;
-    // this.m[2] = m13 + tx;
-    // this.m[5] = m23 + ty;
-    return this;
-  }
-
-  scale(sx, sy) {
-    if (sx instanceof Vec2) {
-      sy = sx.y;
-      sx = sx.x;
-    }
-    const m = this.m;
-    m[0] *= sx;
-    m[1] *= sy;
-    //m[2] *= sx;
-    m[3] *= sx;
-    m[4] *= sy;
-    // m[5] *= sy;
-    return this;
-  }
-
-  // Rotate clockwise with given degrees.
-  rotate(degrees) {
-    const theta = toRadians(degrees);
-    const c = Math.cos(theta);
-    const s = Math.sin(theta);
-
-    const m = this.m;
-    const [m11, m12, m13, m21, m22, m23] = m;
-
-    m[0] = c * m11 + s * m12;
-    m[1] = -s * m11 + c * m12;
-    // m[2] = m13; // c * m13 + -s * m23;
-
-    m[3] = c * m21 + s * m22;
-    m[4] = -s * m21 + c * m22;
-    // m[5] = m23; // s * m13 + c * m23;
-
-    // m[0] = c * m11 + -s * m21;
-    // m[1] = c * m12 + -s * m22;
-    // m[2] = c * m13 + -s * m23;
-
-    // m[3] = s * m11 + c * m21;
-    // m[4] = s * m12 + c * m22;
-    // m[5] = s * m13 + c * m23;
-
-    return this;
-  }
-
-  shear(shx, shy) {
-    const m = this.m;
-    const [m11, m12, m13, m21, m22, m23] = m;
-    m[0] = m11 + m12 * shy;
-    m[1] = m11 * shx + m12;
-    m[3] = m21 + m22 * shy;
-    m[4] = m21 * shx + m22;
-    return this;
-  }
-}
-
-export class Matrix4 {
-  constructor() {
-    this.m = [1, 0, 0, 0, 1, 0];
-  }
-
-  identity() {
-    this.m[0] = 1;
-    this.m[1] = 0;
-    this.m[2] = 0;
-    this.m[3] = 0;
-    this.m[4] = 1;
-    this.m[5] = 0;
-  }
-
-  transformPoint(pt) {
-    const [m11, m12, m13, m21, m22, m23] = this.m;
-    const x = pt.x;
-    const y = pt.y;
-    return new Vec2(m11 * x + m12 * y + m13, m21 * x + m22 * y + m23);
-  }
-
-  transformGeometry(geo) {
+  transformShape(geo) {
     const [m11, m12, m13, m21, m22, m23] = this.m;
     const xs = geo.commands.getArray('p[x]');
     const ys = geo.commands.getArray('p[y]');
@@ -313,6 +208,7 @@ export class Matrix4 {
       0, 0, 1, 0, 
       0, 0, 0, 1
     );
+    return this;
   }
 
   // prettier-ignore
@@ -322,6 +218,48 @@ export class Matrix4 {
     m[ 4] = arr[ 4]; m[ 5] = arr[ 5]; m[ 6] = arr[ 6]; m[ 7] = arr[ 7];
     m[ 8] = arr[ 8]; m[ 9] = arr[ 9]; m[10] = arr[10]; m[11] = arr[11];
     m[12] = arr[12]; m[13] = arr[13]; m[14] = arr[14]; m[15] = arr[15];
+  }
+
+  // prettier-ignore
+  toUniformMatrix(arr = [], offset = 0) {
+    const m = this.m;
+
+		arr[offset] = m[ 0];
+		arr[offset + 1] = m[ 4];
+		arr[offset + 2] = m[ 8];
+		arr[offset + 3] = m[12];
+
+		arr[offset + 4] = m[ 1];
+		arr[offset + 5] = m[ 5];
+		arr[offset + 6] = m[ 9];
+		arr[offset + 7] = m[13];
+
+		arr[offset + 8] = m[ 2];
+		arr[offset + 9] = m[ 6];
+		arr[offset + 10] = m[10];
+		arr[offset + 11] = m[14];
+
+		arr[offset + 12] = m[ 3];
+		arr[offset + 13] = m[ 7];
+		arr[offset + 14] = m[ 11];
+		arr[offset + 15] = m[ 15];
+
+    return arr;
+  }
+
+  clone() {
+    return new Matrix4().fromArray(this.m);
+  }
+
+  // prettier-ignore
+  scale(v) {
+		const m = this.m;
+		const x = v.x, y = v.y, z = v.z;
+		m[ 0] *= x; m[ 1] *= y; m[ 2] *= z;
+		m[ 4] *= x; m[ 5] *= y; m[ 6] *= z;
+		m[ 8] *= x; m[ 9] *= y; m[10] *= z;
+		m[12] *= x; m[ 7] *= y; m[15] *= z;
+		return this;
   }
 
   makePerspective(left, right, top, bottom, near, far) {
@@ -351,7 +289,9 @@ export class Matrix4 {
       1, 0, 0, tx,
       0, 1, 0, ty, 
       0, 0, 1, tz,
-      0, 0, 0, 1)
+      0, 0, 0, 1
+    );
+    return this;
   }
 
   // prettier-ignore
@@ -359,18 +299,125 @@ export class Matrix4 {
     const c = Math.cos(r);
     const s = Math.sin(r);
     this.set(
-      1,  0, 0, 0,
-      0,  c, s, 0, 
-      0, -s, c, 0,
+      1, 0,  0, 0,
+      0, c, -s, 0, 
+      0, s,  c, 0,
+      0, 0,  0, 1
+    );
+    return this;
+  }
+
+  // prettier-ignore
+  makeRotationY(r) {
+    const c = Math.cos(r);
+    const s = Math.sin(r);
+    this.set(
+      c, 0, s, 0,
+      0, 1, 0, 0, 
+     -s, 0, c, 0,
+      0, 0, 0, 1
+    );
+    return this;
+  }
+
+  // prettier-ignore
+  makeRotationZ(r) {
+    const c = Math.cos(r);
+    const s = Math.sin(r);
+    this.set(
+      c, -s, 0, 0,
+      s,  c, 0, 0, 
+      0,  0, 1, 0,
       0,  0, 0, 1
     );
+    return this;
   }
 
-  clone() {
-    return new Matrix4().fromArray(this.m);
+  multiply(m) {
+    return this.multiplyInto(this, m);
   }
 
-  static;
+  premultiply(m) {
+    return this.multiplyInto(m, this);
+  }
+
+  // prettier-ignore
+  multiplyInto(a, b) {
+    const am = a.m;
+		const bm = b.m;
+		const m = this.m;
+
+		const a11 = am[ 0], a12 = am[ 1], a13 = am[ 2], a14 = am[ 3];
+		const a21 = am[ 4], a22 = am[ 5], a23 = am[ 6], a24 = am[ 7];
+		const a31 = am[ 8], a32 = am[ 9], a33 = am[10], a34 = am[11];
+		const a41 = am[12], a42 = am[13], a43 = am[14], a44 = am[15];
+
+		const b11 = bm[ 0], b12 = bm[ 1], b13 = bm[ 2], b14 = bm[ 3];
+		const b21 = bm[ 4], b22 = bm[ 5], b23 = bm[ 6], b24 = bm[ 7];
+		const b31 = bm[ 8], b32 = bm[ 9], b33 = bm[10], b34 = bm[11];
+		const b41 = bm[12], b42 = bm[13], b43 = bm[14], b44 = bm[15];
+
+		m[ 0] = a11 * b11 + a12 * b21 + a13 * b31 + a14 * b41;
+		m[ 1] = a11 * b12 + a12 * b22 + a13 * b32 + a14 * b42;
+		m[ 2] = a11 * b13 + a12 * b23 + a13 * b33 + a14 * b43;
+		m[ 3] = a11 * b14 + a12 * b24 + a13 * b34 + a14 * b44;
+
+		m[ 4] = a21 * b11 + a22 * b21 + a23 * b31 + a24 * b41;
+		m[ 5] = a21 * b12 + a22 * b22 + a23 * b32 + a24 * b42;
+		m[ 6] = a21 * b13 + a22 * b23 + a23 * b33 + a24 * b43;
+		m[ 7] = a21 * b14 + a22 * b24 + a23 * b34 + a24 * b44;
+
+		m[ 8] = a31 * b11 + a32 * b21 + a33 * b31 + a34 * b41;
+		m[ 9] = a31 * b12 + a32 * b22 + a33 * b32 + a34 * b42;
+		m[10] = a31 * b13 + a32 * b23 + a33 * b33 + a34 * b43;
+		m[11] = a31 * b14 + a32 * b24 + a33 * b34 + a34 * b44;
+
+		m[12] = a41 * b11 + a42 * b21 + a43 * b31 + a44 * b41;
+		m[13] = a41 * b12 + a42 * b22 + a43 * b32 + a44 * b42;
+		m[14] = a41 * b13 + a42 * b23 + a43 * b33 + a44 * b43;
+		m[15] = a41 * b14 + a42 * b24 + a43 * b34 + a44 * b44;
+
+		return this;
+  }
+
+  // prettier-ignore
+  invert() {
+    const m = this.m;
+    const m11 = m[ 0], m12 = m[ 1], m13 = m[ 2], m14 = m[ 3];
+    const m21 = m[ 4], m22 = m[ 5], m23 = m[ 6], m24 = m[ 7];
+    const m31 = m[ 8], m32 = m[ 9], m33 = m[10], m34 = m[11];
+    const m41 = m[12], m42 = m[13], m43 = m[14], m44 = m[15];
+
+    const t11 = m23 * m34 * m42 - m24 * m33 * m42 + m24 * m32 * m43 - m22 * m34 * m43 - m23 * m32 * m44 + m22 * m33 * m44;
+    const t12 = m14 * m33 * m42 - m13 * m34 * m42 - m14 * m32 * m43 + m12 * m34 * m43 + m13 * m32 * m44 - m12 * m33 * m44;
+    const t13 = m13 * m24 * m42 - m14 * m23 * m42 + m14 * m22 * m43 - m12 * m24 * m43 - m13 * m22 * m44 + m12 * m23 * m44;
+    const t14 = m14 * m23 * m32 - m13 * m24 * m32 - m14 * m22 * m33 + m12 * m24 * m33 + m13 * m22 * m34 - m12 * m23 * m34;
+
+    const det = n11 * t11 + n21 * t12 + n31 * t13 + n41 * t14;
+		if (det === 0) return this.set( 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 );
+		const detInv = 1 / det;
+    m[ 0] = t11 * detInv;
+    m[ 4] = t12 * detInv;
+		m[ 8] = t13 * detInv;
+		m[12] = t14 * detInv;
+
+    m[ 1] = ( n24 * n33 * n41 - n23 * n34 * n41 - n24 * n31 * n43 + n21 * n34 * n43 + n23 * n31 * n44 - n21 * n33 * n44 ) * detInv;
+		m[ 5 ] = ( n13 * n34 * n41 - n14 * n33 * n41 + n14 * n31 * n43 - n11 * n34 * n43 - n13 * n31 * n44 + n11 * n33 * n44 ) * detInv;
+		m[ 9 ] = ( n14 * n23 * n41 - n13 * n24 * n41 - n14 * n21 * n43 + n11 * n24 * n43 + n13 * n21 * n44 - n11 * n23 * n44 ) * detInv;
+		m[13 ] = ( n13 * n24 * n31 - n14 * n23 * n31 + n14 * n21 * n33 - n11 * n24 * n33 - n13 * n21 * n34 + n11 * n23 * n34 ) * detInv;
+
+    m[ 2] = ( n22 * n34 * n41 - n24 * n32 * n41 + n24 * n31 * n42 - n21 * n34 * n42 - n22 * n31 * n44 + n21 * n32 * n44 ) * detInv;
+		m[ 6] = ( n14 * n32 * n41 - n12 * n34 * n41 - n14 * n31 * n42 + n11 * n34 * n42 + n12 * n31 * n44 - n11 * n32 * n44 ) * detInv;
+		m[10] = ( n12 * n24 * n41 - n14 * n22 * n41 + n14 * n21 * n42 - n11 * n24 * n42 - n12 * n21 * n44 + n11 * n22 * n44 ) * detInv;
+		m[14] = ( n14 * n22 * n31 - n12 * n24 * n31 - n14 * n21 * n32 + n11 * n24 * n32 + n12 * n21 * n34 - n11 * n22 * n34 ) * detInv;
+
+    m[ 3] = ( n23 * n32 * n41 - n22 * n33 * n41 - n23 * n31 * n42 + n21 * n33 * n42 + n22 * n31 * n43 - n21 * n32 * n43 ) * detInv;
+		m[ 7] = ( n12 * n33 * n41 - n13 * n32 * n41 + n13 * n31 * n42 - n11 * n33 * n42 - n12 * n31 * n43 + n11 * n32 * n43 ) * detInv;
+		m[11] = ( n13 * n22 * n41 - n12 * n23 * n41 - n13 * n21 * n42 + n11 * n23 * n42 + n12 * n21 * n43 - n11 * n22 * n43 ) * detInv;
+    m[15] = ( n12 * n23 * n31 - n13 * n22 * n31 + n13 * n21 * n32 - n11 * n23 * n32 - n12 * n21 * n33 + n11 * n22 * n33 ) * detInv;
+    
+    return this;
+  }
 }
 
 export class Color {
@@ -619,7 +666,7 @@ class AttributeTable {
 
 let simplex = new SimplexNoise(100);
 
-export class Geometry {
+export class Shape {
   constructor(initialCapacity = 32) {
     this.contours = new AttributeTable(8);
     this.contours.addAttributeType('offset', ATTRIBUTE_TYPE_I16);
@@ -636,7 +683,7 @@ export class Geometry {
   }
 
   clone() {
-    const newGeo = new Geometry();
+    const newGeo = new Shape();
     newGeo.contours = this.contours.clone();
     newGeo.commands = this.commands.clone();
     newGeo.styles = this.styles.map((style) => style.clone());
@@ -790,103 +837,201 @@ export class Geometry {
   }
 }
 
-export class Path {
-  constructor() {
-    this.fill = new Color();
-    this.stroke = null;
-    this.strokeWidth = 1;
-    this.verbs = [];
-    this.points = [];
-    this.attrs = [];
+const POINTS_VS = `precision mediump float;
+uniform mat4 u_matrix;
+attribute vec4 a_position;
+void main(void) {
+  gl_Position = u_matrix * a_position;
+  gl_PointSize = 10.0;
+}`;
+
+const POINTS_FS = `precision mediump float;
+void main(void) {
+  gl_FragColor = vec4(1, 0, 0, 0.5);
+}`;
+
+function compileShader(gl, source, type, replacements) {
+  const shader = gl.createShader(type);
+
+  if (replacements) {
+    for (k in replacements) {
+      const v = replacements[k];
+      const re = new RegExp(k, 'g');
+      source = source.replace(re, v);
+    }
+  }
+
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  const ok = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+  if (!ok) {
+    throw `Compile error: ${gl.getShaderInfoLog(shader)}`;
+  }
+  return shader;
+}
+
+function createProgram(gl, vertexSource, fragmentSource, replacements) {
+  const vertexShader = compileShader(gl, vertexSource, gl.VERTEX_SHADER, replacements);
+  const fragmentShader = compileShader(gl, fragmentSource, gl.FRAGMENT_SHADER, replacements);
+  const program = gl.createProgram();
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+  const ok = gl.getProgramParameter(program, gl.LINK_STATUS);
+  if (!ok) {
+    throw `Link error: ${gl.getProgramInfoLog(program)}`;
+  }
+  return program;
+}
+
+let gDefaultShader;
+let gPointsShader;
+
+export class Geo {
+  constructor(initialCapacity = 32) {
+    this.points = new AttributeTable(initialCapacity);
+    this.points.addAttributeType('p[x]', ATTRIBUTE_TYPE_F32);
+    this.points.addAttributeType('p[y]', ATTRIBUTE_TYPE_F32);
+    this.points.addAttributeType('p[z]', ATTRIBUTE_TYPE_F32);
+
+    this.faces = new AttributeTable(initialCapacity);
+    this.faces.addAttributeType('v1', ATTRIBUTE_TYPE_I16);
+    this.faces.addAttributeType('v2', ATTRIBUTE_TYPE_I16);
+    this.faces.addAttributeType('v3', ATTRIBUTE_TYPE_I16);
   }
 
   clone() {
-    const newPath = new Path();
-    newPath.fill = this.fill ? this.fill.clone() : null;
-    newPath.stroke = this.stroke ? this.stroke.clone() : null;
-    newPath.strokeWidth = this.strokeWidth;
-    newPath.verbs = this.verbs.slice();
-    newPath.points = this.points.map((pt) => pt.clone());
-    newPath.attrs = this.attrs.map((attr) => JSON.parse(JSON.stringify(attr)));
-    return newPath;
+    const newGeo = new Geo();
+    newGeo.points = this.points.clone();
+    newGeo.faces = this.faces.clone();
+    return newGeo;
   }
 
-  moveTo(pt, attrs) {
-    this.verbs.push(PATH_MOVE_TO);
-    this.points.push(pt);
-    attrs && this.attrs.push(attrs);
+  // extend(geo) {
+  //   // Extend vertices
+  //   const contoursSize = geo.contours.size;
+  //   const offset = geo.contours.getArray('offset');
+  //   const closed = geo.contours.getArray('closed');
+  //   const style = geo.contours.getArray('style');
+  //   for (let i = 0; i < contoursSize; i++) {
+  //     const newContour = { offset: offset[i] + this.commands.size, closed: closed[i], style: style[i] + styleOffset };
+  //     this.contours.append(newContour);
+  //   }
+
+  //   // Extend commands
+  //   const commandsSize = geo.commands.size;
+  //   for (let i = 0; i < commandsSize; i++) {
+  //     const newCommand = geo.commands.getObject(i);
+  //     this.commands.append(newCommand);
+  //   }
+
+  //   // Extends styles
+  //   for (const style of geo.styles) {
+  //     this.styles.push(style.clone());
+  //   }
+  //   this.currentStyleIndex = this.styles.length - 1;
+  // }
+
+  mapPoints(fn) {
+    const size = this.points.size;
+    const xs = this.points.getArray('p[x]');
+    const ys = this.points.getArray('p[y]');
+    const zs = this.points.getArray('p[y]');
+    for (let i = 0; i < size; i++) {
+      const [x, y, z] = fn(xs[i], ys[i], zs[i], i, size);
+      xs[i] = x;
+      ys[i] = y;
+      zs[i] = z;
+    }
   }
 
-  lineTo(pt, attrs) {
-    this.verbs.push(PATH_LINE_TO);
-    this.points.push(pt);
-    attrs && this.attrs.push(attrs);
+  draw(gl) {
+    const { points, faces } = this;
+    if (faces.size > 0) {
+      this._drawTriangles(gl, points, faces);
+    } else if (points.size > 0) {
+      this._drawPoints(gl, points);
+    }
   }
 
-  curveTo(ctrl1, ctrl2, pt, attrs) {
-    this.verbs.push(PATH_CURVE_TO);
-    this.points.push(ctrl1);
-    this.points.push(ctrl2);
-    this.points.push(pt);
-    attrs && this.attrs.push(attrs);
-    attrs && this.attrs.push(attrs);
-    attrs && this.attrs.push(attrs);
-  }
-
-  close(attrs) {
-    this.verbs.push(PATH_CLOSE);
-    attrs && this.attrs.push(attrs);
-  }
-
-  draw(ctx) {
-    let i = 0;
-    const pts = this.points;
+  _drawShapes(ctx, contours, commands, styles) {
     ctx.beginPath();
-    for (const verb of this.verbs) {
-      switch (verb) {
-        case PATH_MOVE_TO:
-          ctx.moveTo(pts[i].x, pts[i].y);
-          i++;
-          break;
-        case PATH_LINE_TO:
-          ctx.lineTo(pts[i].x, pts[i].y);
-          i++;
-          break;
-        case PATH_CURVE_TO:
-          ctx.bezierCurveTo(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y, pts[i + 2].x, pts[i + 2].y);
-          i += 3;
-          break;
-        case PATH_CLOSE:
-          // FIXME: closePath is super slow in Chrome
-          // ctx.closePath();
-          break;
+    for (let i = 0; i < contours.size; i++) {
+      const offset = contours.get(i, 'offset');
+      const closed = contours.get(i, 'closed');
+      const style = contours.get(i, 'style');
+      const nextOffset = i < contours.size - 1 ? contours.get(i + 1, 'offset') : commands.size;
+      for (let j = offset; j < nextOffset; j++) {
+        const verb = commands.get(j, 'verb');
+        if (verb === PATH_MOVE_TO) {
+          const x = commands.get(j, 'p[x]');
+          const y = commands.get(j, 'p[y]');
+          ctx.beginPath(); // perf hack
+          ctx.moveTo(x, y);
+        } else if (verb === PATH_LINE_TO) {
+          const x = commands.get(j, 'p[x]');
+          const y = commands.get(j, 'p[y]');
+          ctx.lineTo(x, y);
+        } else if (verb === PATH_CURVE_TO) {
+          const x = commands.get(j, 'p[x]');
+          const y = commands.get(j, 'p[y]');
+          const cx1 = commands.get(j + 1, 'p[x]');
+          const cy1 = commands.get(j + 1, 'p[y]');
+          const cx2 = commands.get(j + 2, 'p[x]');
+          const cy2 = commands.get(j + 2, 'p[y]');
+          ctx.bezierCurveTo(cx1, cy1, cx2, cy2, x, y);
+        }
       }
-    }
-    if (this.fill) {
-      this.fill.setFillStyle(ctx);
-      //ctx.fillStyle = this.fill.toRgba();
-      ctx.fill();
-    }
-    if (this.stroke) {
-      this.stroke.setStrokeStyle(ctx);
-      // ctx.strokeStyle = this.stroke.toRgba();
-      ctx.lineWidth = this.strokeWidth;
-      ctx.stroke();
+      if (!!closed) {
+        ctx.closePath();
+      }
+      const drawStyle = styles[style];
+      if (!drawStyle) {
+        throw new Error(`Style ${style} not found in styles.`);
+      }
+      drawStyle.draw(ctx);
     }
   }
-}
 
-export class Group {
-  constructor() {
-    this.shapes = [];
-  }
-  add(shape) {
-    this.shapes.push(shape);
-  }
-  draw(ctx) {
-    for (const shape of this.shapes) {
-      shape.draw(ctx);
+  _drawPoints(gl, points) {
+    if (!gPointsShader) {
+      gPointsShader = createProgram(gl, POINTS_VS, POINTS_FS);
     }
+    const vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+
+    const vertices = new Float32Array(points.size * 3);
+    const size = points.size;
+    let offset = 0;
+    const xs = this.points.getArray('p[x]');
+    const ys = this.points.getArray('p[y]');
+    const zs = this.points.getArray('p[y]');
+    for (let i = 0; i < size; i++) {
+      vertices[offset++] = xs[i];
+      vertices[offset++] = ys[i];
+      vertices[offset++] = zs[i];
+    }
+
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+    gl.useProgram(gPointsShader);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    var positionAttrib = gl.getAttribLocation(gPointsShader, 'a_position');
+    gl.vertexAttribPointer(positionAttrib, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(positionAttrib);
+
+    const matrix = new Matrix4();
+    // matrix.makeOrthographic(-3, 3, -3, 3, -1, 1);
+    // matrix.scale(new Vec3(0.5, 1.0, 1.0));
+    // const rot = new Matrix4().makeRotationX(0.1);
+    // matrix.multiplyInto(matrix, rot);
+    const matrixLoc = gl.getUniformLocation(gPointsShader, 'u_matrix');
+
+    gl.uniformMatrix4fv(matrixLoc, false, matrix.toUniformMatrix());
+
+    gl.drawArrays(gl.LINES, 0, points.size);
   }
 }
 
