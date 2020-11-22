@@ -4,7 +4,7 @@
 // perspective transforms, and rendering not just dots but lines.
 // Also I think there's a huge memory leak I have to fix :-)
 
-import { html, render, useEffect, useState, useRef } from '../third_party/preact-htm.min.js';
+import { html, render, useEffect, useState, useRef, useCallback } from '../third_party/preact-htm.min.js';
 import {
   Color,
   LinearGradient,
@@ -96,7 +96,7 @@ let gPointsBuffer;
 let gProgramInfo;
 let gBufferInfo;
 
-function Viewer({ network, version, uiVisible, bordered }) {
+function Viewer({ network, version, uiVisible, bordered, isAnimating, setIsAnimating }) {
   const canvasRef = useRef();
   const glRef = useRef();
   const [drawPoints, setDrawPoints] = useState(false);
@@ -257,6 +257,9 @@ function Viewer({ network, version, uiVisible, bordered }) {
     ${uiVisible &&
     html`<div class="p-2 text-sm flex align-center bg-gray-800 select-none">
       <label class="ml-2"
+        ><input class="align-text-middle" type="checkbox" checked=${isAnimating} onChange=${() => setIsAnimating(!isAnimating)} /> Animate
+      </label>
+      <label class="ml-2"
         ><input class="align-text-middle" type="checkbox" checked=${drawPoints} onChange=${() => setDrawPoints((pt) => !pt)} /> Draw
         Points</label
       >
@@ -364,7 +367,7 @@ function Spreadsheet({ network, version }) {
 const VIEWER_PANE_VIEWER = 'viewer';
 const VIEWER_PANE_SPREADSHEET = 'spreadsheet';
 
-function ViewerPane({ network, version, uiVisible, bordered }) {
+function ViewerPane({ network, version, uiVisible, bordered, isAnimating, setIsAnimating }) {
   const [activeTab, setActiveTab] = useState(VIEWER_PANE_VIEWER);
   const header = html`
     <header class="flex bg-gray-900 select-none">
@@ -385,7 +388,14 @@ function ViewerPane({ network, version, uiVisible, bordered }) {
   return html`<div class="flex flex-col">
     ${uiVisible && header}
     ${activeTab === VIEWER_PANE_VIEWER &&
-    html`<${Viewer} network=${network} version=${version} uiVisible=${uiVisible} bordered=${bordered} />`}
+    html`<${Viewer}
+      network=${network}
+      version=${version}
+      uiVisible=${uiVisible}
+      bordered=${bordered}
+      isAnimating=${isAnimating}
+      setIsAnimating=${setIsAnimating}
+    />`}
     ${activeTab === VIEWER_PANE_SPREADSHEET && html`<${Spreadsheet} network=${network} version=${version} />`}
   </div> `;
 }
@@ -613,11 +623,13 @@ function App() {
   const [version, setVersion] = useState(0);
   const [uiVisible, setUiVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(true);
+  const shouldAnimateRef = useRef(true);
+  const animationHandleRef = useRef();
 
   useEffect(() => {
     setActiveNode(network.nodes.find((node) => node.name === network.renderedNode));
     if (isAnimating) {
-      window.requestAnimationFrame(animate);
+      animationHandleRef.current = window.requestAnimationFrame(animate);
     } else {
       runNetwork();
     }
@@ -672,10 +684,20 @@ function App() {
     // network.setInput('grid1', 'height', gridWidth);
     // network.setInput('trans1', 'rotate', remap(r, -1, 1, -90, 90));
     runNetwork();
-    if (isAnimating) {
-      window.requestAnimationFrame(animate);
+    if (shouldAnimateRef.current) {
+      animationHandleRef.current = window.requestAnimationFrame(animate);
     }
   };
+
+  useEffect(() => {
+    if (isAnimating) {
+      animationHandleRef.current = window.requestAnimationFrame(animate);
+      shouldAnimateRef.current = true;
+    } else {
+      window.cancelAnimationFrame(animationHandleRef.current);
+      shouldAnimateRef.current = false;
+    }
+  }, [isAnimating]);
 
   const setRenderedNode = (node) => {
     network.renderedNode = node.name;
@@ -699,7 +721,14 @@ function App() {
     <button onClick=${toggleUI} style=${{ zIndex: 10, position: 'fixed', right: '15px', top: '15px', outline: 'none' }}>
       <svg width="20" height="20" viewBox="0 0 10 10"><path d="M0 2h8M0 5h8M0 8h8" fill="none" stroke="#a0aec0" /></svg>
     </button>
-    <${ViewerPane} network=${network} version=${version} uiVisible=${uiVisible} bordered=${true} />
+    <${ViewerPane}
+      network=${network}
+      version=${version}
+      uiVisible=${uiVisible}
+      bordered=${true}
+      isAnimating=${isAnimating}
+      setIsAnimating=${setIsAnimating}
+    />
     ${uiVisible &&
     html`<div class="sidebar">
       <${PropsView} activeNode=${activeNode} onSetInput=${onSetInput} version=${version} />
