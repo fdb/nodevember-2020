@@ -1364,19 +1364,40 @@ export class BoxNode extends Node {
     const z2 = center.z + size.z / 2;
 
     // Points: back plane
-    geo.points.append({ 'p[x]': x1, 'p[y]': y1, 'p[z]': z1 });
-    geo.points.append({ 'p[x]': x2, 'p[y]': y1, 'p[z]': z1 });
-    geo.points.append({ 'p[x]': x1, 'p[y]': y2, 'p[z]': z1 });
-    geo.points.append({ 'p[x]': x2, 'p[y]': y2, 'p[z]': z1 });
+    geo.points.append({ 'p[x]': x1, 'p[y]': y1, 'p[z]': z1 }); // 0 - bottom left
+    geo.points.append({ 'p[x]': x2, 'p[y]': y1, 'p[z]': z1 }); // 1 - bottom right
+    geo.points.append({ 'p[x]': x1, 'p[y]': y2, 'p[z]': z1 }); // 2 - top left
+    geo.points.append({ 'p[x]': x2, 'p[y]': y2, 'p[z]': z1 }); // 3 - top right
 
     // Points: front plane
-    geo.points.append({ 'p[x]': x1, 'p[y]': y1, 'p[z]': z2 });
-    geo.points.append({ 'p[x]': x2, 'p[y]': y1, 'p[z]': z2 });
-    geo.points.append({ 'p[x]': x1, 'p[y]': y2, 'p[z]': z2 });
-    geo.points.append({ 'p[x]': x2, 'p[y]': y2, 'p[z]': z2 });
+    geo.points.append({ 'p[x]': x1, 'p[y]': y1, 'p[z]': z2 }); // 4 - bottom left
+    geo.points.append({ 'p[x]': x2, 'p[y]': y1, 'p[z]': z2 }); // 5 - bottom right
+    geo.points.append({ 'p[x]': x1, 'p[y]': y2, 'p[z]': z2 }); // 6 - top left
+    geo.points.append({ 'p[x]': x2, 'p[y]': y2, 'p[z]': z2 }); // 7 - top right
 
     // Faces: back plane
-    // geo.faces.
+    geo.faces.append({ 'f[0]': 0, 'f[1]': 1, 'f[2]': 2 });
+    geo.faces.append({ 'f[0]': 1, 'f[1]': 2, 'f[2]': 3 });
+
+    // Faces: front plane
+    geo.faces.append({ 'f[0]': 4, 'f[1]': 5, 'f[2]': 6 });
+    geo.faces.append({ 'f[0]': 5, 'f[1]': 6, 'f[2]': 7 });
+
+    // Faces: top plane
+    geo.faces.append({ 'f[0]': 2, 'f[1]': 3, 'f[2]': 6 });
+    geo.faces.append({ 'f[0]': 3, 'f[1]': 6, 'f[2]': 7 });
+
+    // Faces: bottom plane
+    geo.faces.append({ 'f[0]': 0, 'f[1]': 1, 'f[2]': 4 });
+    geo.faces.append({ 'f[0]': 1, 'f[1]': 4, 'f[2]': 5 });
+
+    // Faces: left plane
+    geo.faces.append({ 'f[0]': 0, 'f[1]': 2, 'f[2]': 4 });
+    geo.faces.append({ 'f[0]': 2, 'f[1]': 4, 'f[2]': 6 });
+
+    // Faces: right plane
+    geo.faces.append({ 'f[0]': 1, 'f[1]': 3, 'f[2]': 5 });
+    geo.faces.append({ 'f[0]': 3, 'f[1]': 5, 'f[2]': 7 });
 
     // geo.points.append({ 'p[x]': 0.0, 'p[y]': -0.5, 'p[z]': 0.0 });
     // geo.points.append({ 'p[x]': -0.8, 'p[y]': 0.5, 'p[z]': 0.0 });
@@ -1405,8 +1426,8 @@ export class GeoGridNode extends Node {
     for (let i = 0; i < rows; i++) {
       for (let j = 0; j < columns; j++) {
         let x = (size.x * j) / (columns - 1) - size.x / 2;
-        let y = (size.y * i) / (rows - 1) - size.y / 2;
-        geo.points.append({ 'p[x]': center.x + x, 'p[y]': center.y + y, 'p[z]': center.z });
+        let z = (size.z * i) / (rows - 1) - size.z / 2;
+        geo.points.append({ 'p[x]': center.x + x, 'p[y]': center.y, 'p[z]': center.z + z });
         // geo.commands.append({ verb: PATH_MOVE_TO, 'p[x]': position.x + x - width / 2, 'p[y]': position.y + y - height / 2 });
       }
     }
@@ -1493,6 +1514,12 @@ export class GeoCopyToPointsNode extends Node {
     const pscales = target.points.hasAttribute('pscale') ? target.points.getArray('pscale') : undefined;
     for (let i = 0; i < targetPointCount; i++) {
       const offset = newGeo.points.size;
+      for (let j = 0, l = geo.faces.size; j < l; j++) {
+        let f0 = geo.faces.get(j, 'f[0]');
+        let f1 = geo.faces.get(j, 'f[1]');
+        let f2 = geo.faces.get(j, 'f[2]');
+        newGeo.faces.append({ 'f[0]': f0 + offset, 'f[1]': f1 + offset, 'f[2]': f2 + offset });
+      }
       // FIXME: copy faces
       for (let j = 0, l = geo.points.size; j < l; j++) {
         let x = geo.points.get(j, 'p[x]');

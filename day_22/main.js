@@ -20,11 +20,25 @@ import {
 import Lox from './lox.js';
 import * as nodes from './nodes.js';
 import { TYPE_FLOAT, TYPE_INT, TYPE_SHAPE, TYPE_GEO, TYPE_IMAGE, TYPE_STRING, TYPE_VEC2, TYPE_VEC3 } from './nodes.js';
+const m4 = twgl.m4;
 
 function remap(v, inMin, inMax, outMin, outMax) {
   v = (v - inMin) / (inMax - inMin);
   return outMin + v * (outMax - outMin);
 }
+
+const FACES_VS = `precision mediump float;
+uniform mat4 u_model_view_projection;
+attribute vec4 position;
+void main(void) {
+  gl_Position = u_model_view_projection * position;
+  gl_PointSize = 4.0;
+}`;
+
+const FACES_FS = `precision mediump float;
+void main(void) {
+  gl_FragColor = vec4(0.8, 0.8, 0.8, 1.0);
+}`;
 
 const POINTS_VS = `precision mediump float;
 uniform mat4 u_proj_matrix;
@@ -74,9 +88,13 @@ function createProgram(gl, vertexSource, fragmentSource, replacements) {
   return program;
 }
 
-let gDefaultShader;
+const DRAW_MODE_LINES = 'lines';
+const DRAW_MODE_POINTS = 'points';
+
 let gPointsShader;
 let gPointsBuffer;
+let gProgramInfo;
+let gBufferInfo;
 
 function Viewer({ network, version, uiVisible, bordered }) {
   const canvasRef = useRef();
@@ -91,6 +109,9 @@ function Viewer({ network, version, uiVisible, bordered }) {
     canvas.width = canvas.width * window.devicePixelRatio;
     canvas.height = canvas.height * window.devicePixelRatio;
     const gl = canvas.getContext('webgl');
+    twgl.resizeCanvasToDisplaySize(gl.canvas);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.enable(gl.DEPTH_TEST);
 
     // programRef.current = createProgram(gl, VERTEX_SOURCE, FRAGMENT_SOURCE);
 
@@ -99,63 +120,81 @@ function Viewer({ network, version, uiVisible, bordered }) {
     glRef.current = gl;
   }, []);
 
-  const drawGeoFaces = (gl, points, faces) => {};
-
-  const drawGeoPoints = (gl, points) => {
-    if (!gPointsShader) {
-      gPointsShader = createProgram(gl, POINTS_VS, POINTS_FS);
-    }
-    if (!gPointsBuffer) {
-      gPointsBuffer = gl.createBuffer();
+  const drawGeo = (gl, geo, mode) => {
+    const { points, faces } = geo;
+    if (!gProgramInfo) {
+      gProgramInfo = twgl.createProgramInfo(gl, [FACES_VS, FACES_FS]);
     }
 
-    const vertices = new Float32Array(points.size * 3);
-    const size = points.size;
-    let offset = 0;
+    // Convert geo arrays to single merged array
+    const position = [];
     const xs = points.getArray('p[x]');
     const ys = points.getArray('p[y]');
     const zs = points.getArray('p[z]');
-    for (let i = 0; i < size; i++) {
-      vertices[offset++] = xs[i];
-      vertices[offset++] = ys[i];
-      vertices[offset++] = zs[i];
+    for (let i = 0, l = points.size; i < l; i++) {
+      position.push(xs[i], ys[i], zs[i]);
     }
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, gPointsBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-    // gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    if (mode === DRAW_MODE_LINES) {
+      const indices = [];
+      const f0 = faces.getArray('f[0]');
+      const f1 = faces.getArray('f[1]');
+      const f2 = faces.getArray('f[2]');
+      for (let i = 0, l = faces.size; i < l; i++) {
+        indices.push(f0[i], f1[i], f1[i], f2[i], f2[i], f0[i]);
+      }
+      const arrays = {
+        position,
+        indices,
+      };
+      gBufferInfo = twgl.createBufferInfoFromArrays(gl, arrays);
+    } else if (mode === DRAW_MODE_POINTS) {
+      const arrays = {
+        position,
+      };
+      gBufferInfo = twgl.createBufferInfoFromArrays(gl, arrays);
+    } else {
+      throw new Error(`Invalid draw mode ${mode}`);
+    }
 
-    gl.useProgram(gPointsShader);
+    // Set up matrices
+    const fov = (30 * Math.PI) / 180;
+    const aspect = 1;
+    const near = 0.1;
+    const far = 1000;
+    const projection = m4.perspective(fov, aspect, near, far);
+    const eye = [0, 0, 5];
+    const target = [0, 0, 0];
+    const up = [0, 1, 0];
+    const camera = m4.lookAt(eye, target, up);
+    const view = m4.inverse(camera);
+    const viewProjection = m4.multiply(projection, view);
+    const world = m4.identity();
+    const modelViewProjection = m4.multiply(viewProjection, world);
+    const uniforms = {
+      u_model_view_projection: modelViewProjection,
+    };
 
-    // gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    var positionAttrib = gl.getAttribLocation(gPointsShader, 'a_position');
-    gl.vertexAttribPointer(positionAttrib, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(positionAttrib);
+    gl.useProgram(gProgramInfo.program);
+    twgl.setBuffersAndAttributes(gl, gProgramInfo, gBufferInfo);
+    twgl.setUniforms(gProgramInfo, uniforms);
 
-    const projMatrix = new Matrix4();
-    // projMatrix.makeOrthographicCamera();
-    projMatrix.makePerspectiveCamera(75, 1, -1000, 1000);
-
-    const modelViewMatrix = new Matrix4();
-    modelViewMatrix.makeTranslation(0, 0, -0.8);
-
-    // matrix.makeOrthographic(-3, 3, -3, 3, -1, 1);
-    // matrix.scale(new Vec3(0.5, 1.0, 1.0));
-    // const rot = new Matrix4().makeRotationX(0.1);
-    // matrix.multiplyInto(matrix, rot);
-    const projMatrixLoc = gl.getUniformLocation(gPointsShader, 'u_proj_matrix');
-    const modelViewMatrixLoc = gl.getUniformLocation(gPointsShader, 'u_model_view_matrix');
-
-    gl.uniformMatrix4fv(projMatrixLoc, false, projMatrix.toUniformMatrix());
-    gl.uniformMatrix4fv(modelViewMatrixLoc, false, modelViewMatrix.toUniformMatrix());
-
-    gl.drawArrays(gl.POINTS, 0, points.size);
+    if (mode === DRAW_MODE_LINES) {
+      gl.drawElements(gl.LINES, gBufferInfo.numElements, gl.UNSIGNED_SHORT, 0);
+    } else {
+      gl.drawArrays(gl.POINTS, 0, gBufferInfo.numElements);
+    }
   };
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const gl = glRef.current;
-    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
+    if (clearCanvas) {
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    }
+
     // if (clearCanvas) {
     //   ctx.clearRect(0, 0, canvas.width, canvas.height);
     // } else {
@@ -172,9 +211,15 @@ function Viewer({ network, version, uiVisible, bordered }) {
       if (outputGeo) {
         const { points, faces } = outputGeo;
         if (faces.size > 0) {
-          drawGeoFaces(gl, points, faces);
+          drawGeo(gl, outputGeo, DRAW_MODE_LINES);
+          if (drawPoints) {
+            drawGeo(gl, outputGeo, DRAW_MODE_POINTS);
+          }
+          // drawGeoFaces(gl, points, faces);
         } else if (points.size > 0) {
-          drawGeoPoints(gl, points);
+          drawGeo(gl, outputGeo, DRAW_MODE_POINTS);
+
+          // drawGeoPoints(gl, points);
         }
 
         // outputGeo.draw(gl);
@@ -234,20 +279,27 @@ function Viewer({ network, version, uiVisible, bordered }) {
 
 const SPREADSHEET_MODE_CONTOURS = 'contours';
 const SPREADSHEET_MODE_COMMANDS = 'commands';
+const SPREADSHEET_MODE_POINTS = 'points';
+const SPREADSHEET_MODE_FACES = 'faces';
 
 function Spreadsheet({ network, version }) {
-  const [mode, setMode] = useState('contours');
   const node = network.nodes.find((node) => node.name === network.renderedNode);
-  if (node.output.type !== TYPE_SHAPE) {
+  const outType = node.output.type;
+  const [mode, setMode] = useState(outType === TYPE_SHAPE ? 'contours' : 'points');
+  if (outType !== TYPE_SHAPE && outType !== TYPE_GEO) {
     return html`<div>No spreadsheet for output type ${node.output.type}</div>`;
   }
-  const shape = node.outputValue();
+  const geo = node.outputValue();
 
   let table;
   if (mode === SPREADSHEET_MODE_CONTOURS) {
     table = geo.contours;
   } else if (mode === SPREADSHEET_MODE_COMMANDS) {
     table = geo.commands;
+  } else if (mode === SPREADSHEET_MODE_POINTS) {
+    table = geo.points;
+  } else if (mode === SPREADSHEET_MODE_FACES) {
+    table = geo.faces;
   } else {
     throw new Error(`Invalid table mode ${mode}.`);
   }
@@ -288,8 +340,10 @@ function Spreadsheet({ network, version }) {
   return html`<div class="flex flex-col">
     <div class="bg-gray-800 p-2">
       <select class="bg-gray-800 text-gray-400 outline-none" onChange=${(e) => setMode(e.target.value)} value=${mode}>
-        <option value=${SPREADSHEET_MODE_CONTOURS}>Contours</option>
-        <option value=${SPREADSHEET_MODE_COMMANDS}>Commands</option>
+        ${outType === TYPE_SHAPE && html`<option value=${SPREADSHEET_MODE_CONTOURS}>Contours</option>`}
+        ${outType === TYPE_SHAPE && html`<option value=${SPREADSHEET_MODE_COMMANDS}>Commands</option>`}
+        ${outType === TYPE_GEO && html`<option value=${SPREADSHEET_MODE_POINTS}>Points</option>`}
+        ${outType === TYPE_GEO && html`<option value=${SPREADSHEET_MODE_FACES}>Faces</option>`}
       </select>
     </div>
     <div style=${{ height: 'calc(100vh - 40px)' }} class="overflow-hidden overflow-y-auto">
@@ -499,19 +553,22 @@ triangle1.x = 20;
 triangle1.y = 20;
 
 const box1 = new nodes.BoxNode('box1');
-box1.setInput('size', new Vec3(0.1, 0.1, 0.1));
+box1.setInput('size', new Vec3(0.05, 0.8, 0.05));
 
 box1.x = 20;
 box1.y = 20;
 
 const grid1 = new nodes.GeoGridNode('grid1');
-grid1.setInput('rows', 4);
+grid1.setInput('center', new Vec3(0, 0.25, 0));
+grid1.setInput('size', new Vec3(1, 1, 20));
+
+grid1.setInput('rows', 100);
 grid1.setInput('columns', 4);
 grid1.x = 150;
 grid1.y = 20;
 
 const trans1 = new nodes.GeoTransformNode('trans1');
-trans1.setInput('rotate', new Vec3(15, 25, 0));
+trans1.setInput('rotate', new Vec3(0, 0, 0));
 trans1.x = 20;
 trans1.y = 70;
 
@@ -519,16 +576,23 @@ const copy1 = new nodes.GeoCopyToPointsNode('copy1');
 copy1.x = 20;
 copy1.y = 120;
 
+const trans2 = new nodes.GeoTransformNode('trans2');
+// trans2.setInput('rotate', new Vec3(15, 25, 0));
+trans2.x = 20;
+trans2.y = 170;
+
 // network.nodes.push(triangle1);
 network.nodes.push(box1);
 network.nodes.push(trans1);
 network.nodes.push(grid1);
 network.nodes.push(copy1);
+network.nodes.push(trans2);
 network.connections.push({ outNode: 'box1', inNode: 'trans1', inPort: 'geo' });
 network.connections.push({ outNode: 'trans1', inNode: 'copy1', inPort: 'geo' });
 network.connections.push({ outNode: 'grid1', inNode: 'copy1', inPort: 'target' });
+network.connections.push({ outNode: 'copy1', inNode: 'trans2', inPort: 'geo' });
 
-network.renderedNode = 'copy1';
+network.renderedNode = 'trans2';
 
 // Check connections
 for (const conn of network.connections) {
@@ -547,8 +611,8 @@ let simplex = new SimplexNoise(101);
 function App() {
   const [activeNode, setActiveNode] = useState(network.nodes[0]);
   const [version, setVersion] = useState(0);
-  const [uiVisible, setUiVisible] = useState(true);
-  const [isAnimating, setIsAnimating] = useState(false);
+  const [uiVisible, setUiVisible] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(true);
 
   useEffect(() => {
     setActiveNode(network.nodes.find((node) => node.name === network.renderedNode));
@@ -594,13 +658,15 @@ function App() {
 
     // network.setInput('trans1', 'seed', Math.round(time * 3));
     // const gridWidth = remap(gridSize, -1, 1, 100, 500);
-    const gridSize = new Vec3(remap(sx, -1, 1, 0.5, 2.0), remap(sy, -1, 1, 0.5, 2.0), remap(sz, -1, 1, 0.5, 2.0));
-    network.setInput('grid1', 'size', gridSize);
+    // const gridSize = new Vec3(remap(sx, -1, 1, 0.5, 2.0), remap(sy, -1, 1, 0.5, 2.0), remap(sz, -1, 1, 0.5, 2.0));
+    // network.setInput('grid1', 'size', gridSize);
 
-    const transRot = new Vec3(remap(rx, -1, 1, -90, 90), remap(ry, -1, 1, -90, 90), remap(rz, -1, 1, -90, 90));
-    network.setInput('trans1', 'rotate', transRot);
-
+    // const transRot = new Vec3(remap(rx, -1, 1, -10, 10), remap(ry, -1, 1, -10, 10), remap(rz, -1, 1, -10, 10));
+    // network.setInput('trans1', 'rotate', transRot);
+    network.setInput('trans2', 'rotate', new Vec3(0, 0, time * 10));
+    network.setInput('trans2', 'translate', new Vec3(0, 0, time));
     // network.setInput('super1', 'n1', remap(n1, -1, 1, -0.2, 2));
+    network.setInput('grid1', 'size', new Vec3(1, 1, 20 + time * 2));
 
     // network.setInput('mountain1', 'amplitude', new Vec2(remap(ax, -1, 1, -20, 20), remap(ay, -1, 1, -20, 20)));
     // network.setInput('grid1', 'height', gridWidth);

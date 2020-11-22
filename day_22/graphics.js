@@ -891,9 +891,9 @@ export class Geo {
     this.points.addAttributeType('p[z]', ATTRIBUTE_TYPE_F32);
 
     this.faces = new AttributeTable(initialCapacity);
-    this.faces.addAttributeType('v1', ATTRIBUTE_TYPE_I16);
-    this.faces.addAttributeType('v2', ATTRIBUTE_TYPE_I16);
-    this.faces.addAttributeType('v3', ATTRIBUTE_TYPE_I16);
+    this.faces.addAttributeType('f[0]', ATTRIBUTE_TYPE_I16);
+    this.faces.addAttributeType('f[1]', ATTRIBUTE_TYPE_I16);
+    this.faces.addAttributeType('f[2]', ATTRIBUTE_TYPE_I16);
   }
 
   clone() {
