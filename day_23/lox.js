@@ -1,4 +1,4 @@
-import { Vec2 } from './graphics.js';
+import { Vec2, Vec3 } from './graphics.js';
 
 export default class Lox {
   constructor() {
@@ -11,6 +11,7 @@ export default class Lox {
     this.interpreter.scope['min'] = Math.min;
     this.interpreter.scope['max'] = Math.max;
     this.interpreter.scope['vec2'] = (x, y) => new Vec2(x, y);
+    this.interpreter.scope['vec3'] = (x, y, z) => new Vec3(x, y, z);
     this.interpreter.scope['noise2d'] = (x, y) => simplex.noise2D(x, y);
   }
 

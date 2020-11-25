@@ -557,45 +557,59 @@ const network = new nodes.Network();
 const lox = new Lox();
 
 const circle1 = new nodes.GeoCircleNode('circle1');
+circle1.setInput('size', new Vec3(0.4, 0.4));
 circle1.x = 20;
 circle1.y = 20;
 
-// const box1 = new nodes.BoxNode('box1');
-// box1.setInput('size', new Vec3(0.05, 0.8, 0.05));
-
-// box1.x = 20;
-// box1.y = 20;
-
-// const grid1 = new nodes.GeoGridNode('grid1');
-// grid1.setInput('center', new Vec3(0, 0.25, 0));
-// grid1.setInput('size', new Vec3(1, 1, 20));
-
-// grid1.setInput('rows', 100);
-// grid1.setInput('columns', 4);
-// grid1.x = 150;
-// grid1.y = 20;
-
-const trans1 = new nodes.GeoTransformNode('trans1');
-trans1.setInput('rotate', new Vec3(0, 0, 0));
-trans1.x = 20;
-trans1.y = 70;
-
-// const copy1 = new nodes.GeoCopyToPointsNode('copy1');
-// copy1.x = 20;
-// copy1.y = 120;
+const box1 = new nodes.BoxNode('box1');
+box1.setInput('size', new Vec3(0.1, 20.0, 3.0));
+box1.setInput('center', new Vec3(0.0, 12, 0.0));
+box1.x = 150;
+box1.y = 20;
 
 // const trans2 = new nodes.GeoTransformNode('trans2');
 // // trans2.setInput('rotate', new Vec3(15, 25, 0));
 // trans2.x = 20;
 // trans2.y = 170;
 
+const merge1 = new nodes.GeoMergeNode('merge1');
+merge1.x = 20;
+merge1.y = 70;
+
+const grid1 = new nodes.GeoGridNode('grid1');
+grid1.setInput('center', new Vec3(0, 0.25, 0));
+grid1.setInput('size', new Vec2(4, 100));
+grid1.setInput('rows', 20);
+grid1.setInput('columns', 5);
+grid1.x = 150;
+grid1.y = 70;
+
+const copy1 = new nodes.GeoCopyToPointsNode('copy1');
+copy1.x = 20;
+copy1.y = 120;
+
+const trans1 = new nodes.GeoTransformNode('trans1');
+trans1.setInput('rotate', new Vec3(0, 0, 0));
+// trans1.setInput('translate', new Vec3(0, 0, -50));
+trans1.setExpression(lox, 'translate', 'vec3(0, 0, -50 + $time % 50)');
+trans1.x = 20;
+trans1.y = 170;
+
 // network.nodes.push(triangle1);
 network.nodes.push(circle1);
+network.nodes.push(box1);
 network.nodes.push(trans1);
+network.nodes.push(merge1);
+network.nodes.push(grid1);
+network.nodes.push(copy1);
 // network.nodes.push(grid1);
 // network.nodes.push(copy1);
 // network.nodes.push(trans2);
-network.connections.push({ outNode: 'circle1', inNode: 'trans1', inPort: 'geo' });
+network.connections.push({ outNode: 'circle1', inNode: 'merge1', inPort: 'geo1' });
+network.connections.push({ outNode: 'box1', inNode: 'merge1', inPort: 'geo2' });
+network.connections.push({ outNode: 'merge1', inNode: 'copy1', inPort: 'geo' });
+network.connections.push({ outNode: 'grid1', inNode: 'copy1', inPort: 'target' });
+network.connections.push({ outNode: 'copy1', inNode: 'trans1', inPort: 'geo' });
 // network.connections.push({ outNode: 'trans1', inNode: 'copy1', inPort: 'geo' });
 // network.connections.push({ outNode: 'grid1', inNode: 'copy1', inPort: 'target' });
 // network.connections.push({ outNode: 'copy1', inNode: 'trans2', inPort: 'geo' });
@@ -613,14 +627,13 @@ for (const conn of network.connections) {
   console.assert(inPortResult, `Connection ${connString}: could not find input port ${conn.inPort} for node ${conn.inNode}.`);
 }
 
-// const simplex = new SimplexNoise(101);
-let simplex = new SimplexNoise(101);
+let simplex = new SimplexNoise(4);
 
 function App() {
   const [activeNode, setActiveNode] = useState(network.nodes[0]);
   const [version, setVersion] = useState(0);
-  const [uiVisible, setUiVisible] = useState(true);
-  const [isAnimating, setIsAnimating] = useState(false);
+  const [uiVisible, setUiVisible] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(true);
   const shouldAnimateRef = useRef(true);
   const animationHandleRef = useRef();
 
@@ -650,6 +663,7 @@ function App() {
 
   const animate = () => {
     const time = (Date.now() - startTime) / 1000.0;
+    const seg = simplex.noise2D(3571, time * 0.1);
     const sx = simplex.noise2D(7917, time * 0.01);
     const sy = simplex.noise2D(3626, time * 0.01);
     const sz = simplex.noise2D(4643, time * 0.01);
@@ -666,7 +680,9 @@ function App() {
     // const strokeWidth = simplex.noise2D(3163, time * 0.04);
     // const copies = simplex.noise2D(3571, time * 0.04);
 
-    // network.setInput('trans1', 'seed', Math.round(time * 3));
+    network.setInput('circle1', 'segments', remap(seg, -1, 1, 2, 40));
+    const circle1Size = remap(seg, -1, 1, 0.2, 1);
+    network.setInput('circle1', 'size', new Vec2(circle1Size, circle1Size));
     // const gridWidth = remap(gridSize, -1, 1, 100, 500);
     // const gridSize = new Vec3(remap(sx, -1, 1, 0.5, 2.0), remap(sy, -1, 1, 0.5, 2.0), remap(sz, -1, 1, 0.5, 2.0));
     // network.setInput('grid1', 'size', gridSize);

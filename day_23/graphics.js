@@ -903,30 +903,25 @@ export class Geo {
     return newGeo;
   }
 
-  // extend(geo) {
-  //   // Extend vertices
-  //   const contoursSize = geo.contours.size;
-  //   const offset = geo.contours.getArray('offset');
-  //   const closed = geo.contours.getArray('closed');
-  //   const style = geo.contours.getArray('style');
-  //   for (let i = 0; i < contoursSize; i++) {
-  //     const newContour = { offset: offset[i] + this.commands.size, closed: closed[i], style: style[i] + styleOffset };
-  //     this.contours.append(newContour);
-  //   }
+  extend(geo) {
+    const offset = this.points.size;
 
-  //   // Extend commands
-  //   const commandsSize = geo.commands.size;
-  //   for (let i = 0; i < commandsSize; i++) {
-  //     const newCommand = geo.commands.getObject(i);
-  //     this.commands.append(newCommand);
-  //   }
+    // Extend points
+    const pointsSize = geo.points.size;
+    for (let i = 0, l = geo.points.size; i < l; i++) {
+      const newPoint = geo.points.getObject(i);
+      this.points.append(newPoint);
+    }
 
-  //   // Extends styles
-  //   for (const style of geo.styles) {
-  //     this.styles.push(style.clone());
-  //   }
-  //   this.currentStyleIndex = this.styles.length - 1;
-  // }
+    // Extend faces
+    for (let i = 0, l = geo.faces.size; i < l; i++) {
+      const newFace = geo.faces.getObject(i);
+      newFace['f[0]'] += offset;
+      newFace['f[1]'] += offset;
+      newFace['f[2]'] += offset;
+      this.faces.append(newFace);
+    }
+  }
 
   mapPoints(fn) {
     const size = this.points.size;

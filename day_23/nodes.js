@@ -1411,7 +1411,7 @@ export class GeoGridNode extends Node {
   constructor(name) {
     super(name, TYPE_GEO);
     this.addInput('center', TYPE_VEC3, new Vec3(0, 0, 0));
-    this.addInput('size', TYPE_VEC3, new Vec3(1, 1, 1));
+    this.addInput('size', TYPE_VEC2, new Vec3(1, 1));
     this.addInput('rows', TYPE_INT, 10);
     this.addInput('columns', TYPE_INT, 10);
   }
@@ -1427,8 +1427,8 @@ export class GeoGridNode extends Node {
     for (let i = 0; i < rows; i++) {
       for (let j = 0; j < columns; j++) {
         let x = (size.x * j) / (columns - 1) - size.x / 2;
-        let z = (size.z * i) / (rows - 1) - size.z / 2;
-        geo.points.append({ 'p[x]': center.x + x, 'p[y]': center.y, 'p[z]': center.z + z });
+        let y = (size.y * i) / (rows - 1) - size.y / 2;
+        geo.points.append({ 'p[x]': center.x + x, 'p[y]': center.y, 'p[z]': center.z + y });
         // geo.commands.append({ verb: PATH_MOVE_TO, 'p[x]': position.x + x - width / 2, 'p[y]': position.y + y - height / 2 });
       }
     }
@@ -1445,8 +1445,6 @@ export class GeoCircleNode extends Node {
   }
 
   run() {
-    console.log('run');
-
     const geo = new Geo();
     const size = this.inputValue('size');
     const center = this.inputValue('center');
@@ -1464,8 +1462,6 @@ export class GeoCircleNode extends Node {
       geo.faces.append({ 'f[0]': 0, 'f[1]': i - 1, 'f[2]': i });
     }
     geo.faces.append({ 'f[0]': 0, 'f[1]': segments, 'f[2]': 1 });
-
-    console.log(geo);
 
     this.setOutput(geo);
   }
@@ -1631,54 +1627,61 @@ export class GeoCopyToPointsNode extends Node {
 export class GeoMergeNode extends Node {
   constructor(name) {
     super(name, TYPE_GEO);
-    this.addInput('geo', TYPE_GEO);
-    this.addInput('translate', TYPE_VEC3, new Vec3(0, 0, 0));
-    this.addInput('rotate', TYPE_VEC3, new Vec3(0, 0, 0));
-    this.addInput('scale', TYPE_VEC3, new Vec3(1, 1, 1));
-    this._matrix = new Matrix4();
-    this._translateMatrix = new Matrix4();
-    this._rotateXMatrix = new Matrix4();
-    this._rotateYMatrix = new Matrix4();
-    this._rotateZMatrix = new Matrix4();
-    this._scaleMatrix = new Matrix4();
+    this.addInput('geo1', TYPE_GEO);
+    this.addInput('geo2', TYPE_GEO);
+    this.addInput('geo3', TYPE_GEO);
+    // this.addInput('translate', TYPE_VEC3, new Vec3(0, 0, 0));
+    // this.addInput('rotate', TYPE_VEC3, new Vec3(0, 0, 0));
+    // this.addInput('scale', TYPE_VEC3, new Vec3(1, 1, 1));
+    // this._matrix = new Matrix4();
+    // this._translateMatrix = new Matrix4();
+    // this._rotateXMatrix = new Matrix4();
+    // this._rotateYMatrix = new Matrix4();
+    // this._rotateZMatrix = new Matrix4();
+    // this._scaleMatrix = new Matrix4();
   }
 
   run() {
-    const geo = this.inputValue('geo');
-    const translate = this.inputValue('translate');
-    const rotate = this.inputValue('rotate');
-    const scale = this.inputValue('scale');
+    const geo1 = this.inputValue('geo1');
+    const geo2 = this.inputValue('geo2');
+    const geo3 = this.inputValue('geo3');
+    // const translate = this.inputValue('translate');
+    // const rotate = this.inputValue('rotate');
+    // const scale = this.inputValue('scale');
 
-    const matrix = this._matrix;
-    matrix.identity();
-    this._translateMatrix.makeTranslation(translate.x, translate.y, translate.z);
-    console.log(this._translateMatrix);
-    this._rotateXMatrix.makeRotationX(toRadians(rotate.x));
-    this._rotateYMatrix.makeRotationY(toRadians(rotate.y));
-    this._rotateZMatrix.makeRotationZ(toRadians(rotate.z));
-    this._scaleMatrix.identity().scale(scale);
+    //     const matrix = this._matrix;
+    //     matrix.identity();
+    //     this._translateMatrix.makeTranslation(translate.x, translate.y, translate.z);
+    //     console.log(this._translateMatrix);
+    //     this._rotateXMatrix.makeRotationX(toRadians(rotate.x));
+    //     this._rotateYMatrix.makeRotationY(toRadians(rotate.y));
+    //     this._rotateZMatrix.makeRotationZ(toRadians(rotate.z));
+    //     this._scaleMatrix.identity().scale(scale);
+    //
+    //     matrix.multiply(this._translateMatrix);
+    //     matrix.multiply(this._scaleMatrix);
+    //     matrix.multiply(this._rotateXMatrix);
+    //     matrix.multiply(this._rotateYMatrix);
+    //     matrix.multiply(this._rotateZMatrix);
+    //     const m = matrix.m;
 
-    matrix.multiply(this._translateMatrix);
-    matrix.multiply(this._scaleMatrix);
-    matrix.multiply(this._rotateXMatrix);
-    matrix.multiply(this._rotateYMatrix);
-    matrix.multiply(this._rotateZMatrix);
-    const m = matrix.m;
+    const newGeo = new Geo();
+    geo1 && newGeo.extend(geo1);
+    geo2 && newGeo.extend(geo2);
+    geo3 && newGeo.extend(geo3);
+    // const xs = newGeo.points.getArray('p[x]');
+    // const ys = newGeo.points.getArray('p[y]');
+    // const zs = newGeo.points.getArray('p[z]');
 
-    const newGeo = geo.clone();
-    const xs = newGeo.points.getArray('p[x]');
-    const ys = newGeo.points.getArray('p[y]');
-    const zs = newGeo.points.getArray('p[z]');
-
-    for (let i = 0, l = newGeo.points.size; i < l; i++) {
-      const x = xs[i];
-      const y = ys[i];
-      const z = zs[i];
-      const w = 1 / (m[12] * x + m[13] * y + m[11] * z + m[15]);
-      xs[i] = (m[0] * x + m[1] * y + m[2] * z + m[3]) * w;
-      ys[i] = (m[4] * x + m[5] * y + m[6] * z + m[7]) * w;
-      zs[i] = (m[8] * x + m[9] * y + m[10] * z + m[11]) * w;
-    }
+    // for (let i = 0, l = newGeo.points.size; i < l; i++) {
+    //   const x = xs[i];
+    //   const y = ys[i];
+    //   const z = zs[i];
+    //   const w = 1 / (m[12] * x + m[13] * y + m[11] * z + m[15]);
+    //   xs[i] = (m[0] * x + m[1] * y + m[2] * z + m[3]) * w;
+    //   ys[i] = (m[4] * x + m[5] * y + m[6] * z + m[7]) * w;
+    //   zs[i] = (m[8] * x + m[9] * y + m[10] * z + m[11]) * w;
+    // }
 
     this.setOutput(newGeo);
   }
