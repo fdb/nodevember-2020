@@ -1456,10 +1456,15 @@ export class GeoCircleNode extends Node {
     for (let i = 0; i < segments; i++) {
       const t = i / segments;
       const x = Math.sin(t * TWO_PI) * size.x;
-      const y = Math.sin(t * TWO_PI) * size.y;
-      geo.points.append({ 'p[x]': center.x + x, 'p[y]': center.y + this.y, 'p[z]': center.z + z });
+      const y = Math.cos(t * TWO_PI) * size.y;
+      geo.points.append({ 'p[x]': center.x + x, 'p[y]': center.y + y, 'p[z]': center.z });
     }
-    
+
+    for (let i = 1; i <= segments; i++) {
+      geo.faces.append({ 'f[0]': 0, 'f[1]': i - 1, 'f[2]': i });
+    }
+    geo.faces.append({ 'f[0]': 0, 'f[1]': segments, 'f[2]': 1 });
+
     console.log(geo);
 
     this.setOutput(geo);

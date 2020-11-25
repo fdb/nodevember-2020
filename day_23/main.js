@@ -447,7 +447,7 @@ function FloatDragger({ value, onChange }) {
     } else if (e.altKey) {
       multiplier.current = 0.01;
     } else {
-      multiplier.current = 1;
+      multiplier.current = 0.1;
     }
     e.preventDefault();
     startX.current = e.clientX;
@@ -556,7 +556,7 @@ function PropsView({ activeNode, onSetInput }) {
 const network = new nodes.Network();
 const lox = new Lox();
 
-const circle1 = new nodes.GeoCircleNode('circle');
+const circle1 = new nodes.GeoCircleNode('circle1');
 circle1.x = 20;
 circle1.y = 20;
 
@@ -575,10 +575,10 @@ circle1.y = 20;
 // grid1.x = 150;
 // grid1.y = 20;
 
-// const trans1 = new nodes.GeoTransformNode('trans1');
-// trans1.setInput('rotate', new Vec3(0, 0, 0));
-// trans1.x = 20;
-// trans1.y = 70;
+const trans1 = new nodes.GeoTransformNode('trans1');
+trans1.setInput('rotate', new Vec3(0, 0, 0));
+trans1.x = 20;
+trans1.y = 70;
 
 // const copy1 = new nodes.GeoCopyToPointsNode('copy1');
 // copy1.x = 20;
@@ -591,16 +591,16 @@ circle1.y = 20;
 
 // network.nodes.push(triangle1);
 network.nodes.push(circle1);
-// network.nodes.push(trans1);
+network.nodes.push(trans1);
 // network.nodes.push(grid1);
 // network.nodes.push(copy1);
 // network.nodes.push(trans2);
-// network.connections.push({ outNode: 'box1', inNode: 'trans1', inPort: 'geo' });
+network.connections.push({ outNode: 'circle1', inNode: 'trans1', inPort: 'geo' });
 // network.connections.push({ outNode: 'trans1', inNode: 'copy1', inPort: 'geo' });
 // network.connections.push({ outNode: 'grid1', inNode: 'copy1', inPort: 'target' });
 // network.connections.push({ outNode: 'copy1', inNode: 'trans2', inPort: 'geo' });
 
-network.renderedNode = 'circle1';
+network.renderedNode = 'trans1';
 
 // Check connections
 for (const conn of network.connections) {
@@ -619,7 +619,7 @@ let simplex = new SimplexNoise(101);
 function App() {
   const [activeNode, setActiveNode] = useState(network.nodes[0]);
   const [version, setVersion] = useState(0);
-  const [uiVisible, setUiVisible] = useState(false);
+  const [uiVisible, setUiVisible] = useState(true);
   const [isAnimating, setIsAnimating] = useState(false);
   const shouldAnimateRef = useRef(true);
   const animationHandleRef = useRef();
