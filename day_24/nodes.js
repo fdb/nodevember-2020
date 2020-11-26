@@ -1423,7 +1423,7 @@ export class GeoGridNode extends Node {
     const columns = this.inputValue('columns');
     const geo = new Geo();
 
-    geo.points.append({ 'p[x]': center.x, 'p[y]': center.y, 'p[z]': center.z });
+    // geo.points.append({ 'p[x]': center.x, 'p[y]': center.y, 'p[z]': center.z });
     for (let i = 0; i < rows; i++) {
       for (let j = 0; j < columns; j++) {
         let x = (size.x * j) / (columns - 1) - size.x / 2;
@@ -1432,6 +1432,13 @@ export class GeoGridNode extends Node {
         // geo.commands.append({ verb: PATH_MOVE_TO, 'p[x]': position.x + x - width / 2, 'p[y]': position.y + y - height / 2 });
       }
     }
+
+    for (let i = 1; i < rows; i++) {
+      for (let j = 1; j < columns; j++) {
+        geo.faces.append({ 'f[0]': (i - 1) * columns + j, 'f[1]': i * columns + j, 'f[2]': i * columns + j - 1 });
+      }
+    }
+
     this.setOutput(geo);
   }
 }
@@ -1641,6 +1648,40 @@ export class GeoMergeNode extends Node {
     geo1 && newGeo.extend(geo1);
     geo2 && newGeo.extend(geo2);
     geo3 && newGeo.extend(geo3);
+    this.setOutput(newGeo);
+  }
+}
+
+export class GeoMountainNode extends Node {
+  constructor(name) {
+    super(name, TYPE_GEO);
+    this.addInput('geo', TYPE_GEO);
+    this.addInput('height', TYPE_FLOAT, 0.25);
+    this.addInput('scale', TYPE_VEC2, new Vec2(1, 1));
+    this.addInput('offset', TYPE_VEC2, new Vec2(0, 0));
+    this._simplex = new SimplexNoise(42);
+  }
+
+  run() {
+    const geo = this.inputValue('geo');
+    const height = this.inputValue('height');
+    const scale = this.inputValue('scale');
+    const offset = this.inputValue('offset');
+    const newGeo = geo.clone();
+    const simplex = this._simplex;
+
+    // const geo = this.inputValue('geo');
+    //const scale = this.inputValue('scale') / 100;
+    // const amplitude = this.inputValue('amplitude');
+    // const seed = this.inputValue('seed');
+    // const newShape = shape.clone();
+    // const simplex = new SimplexNoise(seed);
+    newGeo.mapPoints((x, y, z, i) => {
+      const d = simplex.noise2D(x * scale.x + offset.x, z * scale.y + offset.y);
+      // const dx = simplex.noise2D(offset.x + i * scale, offset.y + i * scale);
+      // const dy = simplex.noise2D(7873 + offset.x + i * scale, offset.y + i * scale);
+      return [x, y + d * height, z];
+    });
 
     this.setOutput(newGeo);
   }
